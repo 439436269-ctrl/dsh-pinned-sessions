@@ -1,0 +1,11 @@
+# @vfvrpq/dsh-pinned-sessions bundle patch: one row, dual-face — the node half is
+# this package's default export (a no-op: the feature is browser-only), the
+# browser half arrives through the `dsh.client` declaration in package.json.
+#
+# The row name MUST equal the package name: the client-modules node half
+# resolves `require.resolve('<row-name>/package.json')` to find the package and
+# then its `exports["./client"]` bundle. The row `id` is a separate, purely local
+# identifier (this machine's profile patch uses the same id to mount it).
+- insert:
+    - id: dsh-pinned-sessions
+      name: '@vfvrpq/dsh-pinned-sessions'

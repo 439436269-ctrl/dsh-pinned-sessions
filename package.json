@@ -1,0 +1,75 @@
+{
+  "name": "@vfvrpq/dsh-pinned-sessions",
+  "version": "0.3.0",
+  "description": "Pinned sessions for DeepSeek Harness: a 「置顶」 group in the sidebar — native-shaped session rows for every pinned session across workspaces, right above the Workspace browser, with an in-place search.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "pinned",
+    "sessions",
+    "sidebar",
+    "置顶",
+    "会话"
+  ],
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "node test/bundle-check.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/439436269-ctrl/dsh-pinned-sessions.git"
+  },
+  "homepage": "https://github.com/439436269-ctrl/dsh-pinned-sessions#readme",
+  "bugs": {
+    "url": "https://github.com/439436269-ctrl/dsh-pinned-sessions/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/**/*.js",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22",
+    "dsh": ">=0.2.0-rc.1"
+  },
+  "devDependencies": {
+    "react": "^18.3.1"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-primitives",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-session",
+        "@deepseek-ai/dsh-client-ui-workspace",
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-api-workspace-controller"
+      ],
+      "platform": "web"
+    }
+  }
+}
