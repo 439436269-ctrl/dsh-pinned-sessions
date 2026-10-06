@@ -16,7 +16,16 @@ change was verified on DSH Desktop 0.2.0-rc.2.
 - The self-check no longer requires a DSH profile: it looks for React in the
   profile first, then in this package's own `node_modules`, so `npm i && npm test`
   works in CI. Added `devDependencies.react` for that path.
-- Rendering behaviour is unchanged in this release.
+- The group header now carries the plugin's **npm identity** — a muted
+  `dsh-pinned-sessions v0.3.0` chip linking to this package's npm page
+  (`target="_blank"` + `rel="noopener noreferrer"`; the desktop shell routes it
+  through `shell.openExternal`). It shows the unscoped short name because the
+  sidebar is 256px wide; the full scoped name lives in the tooltip and
+  `aria-label`. Clicking it never toggles the group. Six new self-checks (58 → 64)
+  bind the chip's text and `href` to `package.json`, so a version bump that forgets
+  `lib/client.js` fails the suite instead of shipping a stale chip.
+- First npm publication: `@vfvrpq/dsh-pinned-sessions@0.3.0`
+  (`dist.shasum 3c0e1f80b6a2634b58b84cee4604656233c1638f`).
 
 ## 0.2.2 — 2026-10-06
 

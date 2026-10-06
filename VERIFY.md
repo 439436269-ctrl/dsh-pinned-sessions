@@ -212,7 +212,44 @@ GitHub 仓库名仍用 `dsh-pinned-sessions`（无 scope 的尾巴）。
 | 折叠态仍有 chip | ✅ 收起后行数 0、chip 仍在；再点展开恢复 3 行 |
 | 搜索等原有交互无回归 | ✅ 头部折叠/展开、搜索开关、行点击、取消置顶行为不变 |
 
-**npm 现状（重要）**：`@vfvrpq/dsh-pinned-sessions` 在 registry 上 **404（尚未发布）**，
-所以现在点 chip 会打开一个 404 页面，**发布 0.3.0 后链接才有效**。另外无 scope 的
-`dsh-pinned-sessions` 已被另一位作者（TianYa-DAO，0.2.0）占用——是**另一个**功能相近的插件，
+**npm 命名**：`@vfvrpq/dsh-pinned-sessions` 是本包的发布名（0.3.0 起已上线，见 §8）；无 scope 的
+`dsh-pinned-sessions` 被另一位作者（TianYa-DAO，0.2.0）占用——是**另一个**功能相近的插件，
 不是本包；这正是本包改成 scoped 名的原因，chip 的链接也只指向 scoped 包。
+
+## 8. 0.3.0 发布记录（npm + 仓库）
+
+**发布坐标**
+
+| 项 | 值 |
+|---|---|
+| 包 / 版本 | `@vfvrpq/dsh-pinned-sessions@0.3.0` |
+| `dist-tags.latest` | `0.3.0` |
+| 发布时间 | 2026-10-06T14:48:56.227Z（22:48:56 +08:00；`pnpm publish` 命令返回后约 1.5 分钟 promote） |
+| `dist.shasum` (sha1) | `3c0e1f80b6a2634b58b84cee4604656233c1638f` |
+| `dist.integrity` (sha512) | `sha512-yRBZvwCnKFAUHCjnYIRFplGB5dnetR8drknOL2FN/X5aZtqokEERS1FF0WrLXwVLs1jReDcWVdMN7RgmtEwGAA==` |
+| fileCount / unpackedSize | 8 / 48141 |
+| 发布者 | `vfvrpq` |
+| 仓库 / HEAD | https://github.com/439436269-ctrl/dsh-pinned-sessions · `145adc9` · CI success（Node 22/24） |
+
+包内 8 个文件 = `files` 白名单：`lib/index.js`、`lib/client.js`、`cordis.patch.yml`、
+`README.md`、`README.zh.md`、`CHANGELOG.md`、`LICENSE`、`package.json`。
+（`VERIFY.md` **刻意不进 npm 包**——它是仓库内的验证记录。）
+
+**回读校验**（`dsh-plugin-publish-npm/scripts/verify_npm_artifact.py`）：全部通过 ✅
+
+- 下载 registry 产物的 sha1 == `dist.shasum`；`dist.integrity`(sha512) 校验通过；
+- **本地 tgz 与 registry 产物逐字节一致**；
+- 逐文件 sha256：一致 7 / 不同 1（`package.json`，npm 重写字节，语义 diff 为空）。
+
+**看起来像失败但不是**：`versions` 里多出的 `0.0.0-stage`（tarball 只有 README + package.json 的占位版）
+是 npm 给**新包**自动建的占名版本，`dist-tags.latest` 仍指向真实的 `0.3.0`。
+本机 `pnpm publish` 走 staged publishing——命令返回 ≠ 立刻上线，本次 1.5 分钟后 promote 完成
+（`dsh-zspace` 那次实测 6～12 分钟），期间版本端点 404 属正常。
+
+**本机 profile 源**：仍是指向源码目录的 `link:` 依赖 + 软链（保留改码即时生效的开发循环），
+**没有**切到 npm 源。要切：`dsh plugin --profile desktop add @vfvrpq/dsh-pinned-sessions@0.3.0`
+（显式版本不受 24h 观察期拦）；切之前记得先把 profile 补丁层那条 insert 的 `name` 换成同一个包名，
+否则会挂载两次。
+
+**凭证**：Automation token 只写进 `mktemp` 出的 600 权限临时 npmrc，发完立即 `rm`；本机
+`~/.npmrc` 全程不存在。**token 已在对话里明文出现过，用完必须 revoke。**
