@@ -19,7 +19,7 @@ DSH 本身已经支持**置顶会话**（悬停会话行点图钉，或右键 �
 ```
 插件
 自动化任务
-置顶  1  🔍              ← 本插件
+置顶  1  dsh-pinned-sessions v0.3.0  🔍   ← 本插件
    插件笔记：dsh-cost-…   4 小时前
 工作区
 默认工作区
@@ -30,13 +30,18 @@ DSH 本身已经支持**置顶会话**（悬停会话行点图钉，或右键 �
 打开搜索时（数量变成 `命中/总数`）：
 
 ```
-置顶  1/3  ✕
+置顶  1/3  dsh-pinned-sessions v0.3.0  ✕
    [ 搜索置顶会话              ]
    插件笔记：dsh-cost-…   4 小时前
 ```
 
 - 行用的是**原生会话行的同一套度量**（32px 行高、14px 标题、10px 相对时间、同样的悬停底色
   与悬停才出现的行操作），所以这个分组跟工作区分组在视觉上完全一致；
+- 分组头带这个插件的 **npm 身份**——`dsh-pinned-sessions v0.3.0`，一小段灰字，点它跳到 npm 上的
+  [`@vfvrpq/dsh-pinned-sessions`](https://www.npmjs.com/package/@vfvrpq/dsh-pinned-sessions)
+  （`target="_blank"`；桌面壳会把它转成 `shell.openExternal`，所以在系统浏览器里打开，而不是
+  应用内跳转）。侧栏只有 256px，chip 显示**去掉 scope 的短名**，完整包名放在 tooltip /
+  aria-label 里；点它不会顺带折叠分组；
 - 分组头的**描边**图钉与「插件 / 自动化任务」那排侧栏图标的线性风格一致（分组内的图钉状态
   标记仍是实心，用来区分「状态」与「导航」）；
 - 点一行 → 打开该会话；悬停一行 → 「取消置顶」；
@@ -124,7 +129,11 @@ loader 会静默忽略。）
 用假的 `window.__ModuleLoader__` 注册 bundle、用桩 `require` 物化 factory、对假 Client
 Context 跑 `apply()`，再用 hook 垫片渲染分组：断言条目 id、中英文字典键集一致、锚点选择器、
 置顶顺序与数量、运行圆点、取消置顶按钮（且不会同时触发打开）、折叠行为、空态提示、归档提示、
-子代理过滤、英文文案。
+子代理过滤、英文文案，以及 npm chip（文案、`href`、`target`/`rel`，点它不会折叠分组）。
+
+客户端 bundle 读不到自己的 package.json，所以 `lib/client.js` 里重复写了包名与版本
+（`PACKAGE_NAME` / `PACKAGE_VERSION`）；chip 那几条断言会拿它们跟 `package.json` 比对，
+**所以发版时忘了同步这个文件会直接测试失败**，不会带着过期版本号发出去。
 
 DOM 挂载那一半需要真实侧栏，由 [VERIFY.md](VERIFY.md) 里记录的 Playwright 实机验证覆盖。
 

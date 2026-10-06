@@ -172,3 +172,47 @@ GitHub 仓库名仍用 `dsh-pinned-sessions`（无 scope 的尾巴）。
 签名 cookie（`dsh-client-connection` 的 `dsh-auth-*`），外部拿不到 token，无法像临时 profile
 那样自动化点开它；需要用户在该窗口按 ⌘R 刷新后目视确认。（本轮改名只动标识符、未动渲染逻辑，
 58 项自检全过，模块解析与组合均离线复核。）
+
+## 7. 0.3.0 分组头加 npm 身份 chip + 点击跳 npm（本轮）
+
+**改动**：`lib/client.js` 在「置顶」分组头里、数量之后插入一个 `<a class="dshps_chip">`，
+文案 `dsh-pinned-sessions v0.3.0`（去掉 scope 的短名，侧栏只有 256px），
+`href=https://www.npmjs.com/package/@vfvrpq/dsh-pinned-sessions`、`target="_blank"`、
+`rel="noopener noreferrer"`，tooltip / aria-label 用完整包名（`chip.open` 文案，中英各一条）。
+点它不折叠分组（`onClick`/`onKeyDown` 只 `stopPropagation`、不 `preventDefault`，所以默认的
+新标签导航照常发生）。CSS `.dshps_chip` 用 `margin-left:auto` 靠右、`flex:0 1 auto` +
+`text-overflow:ellipsis`，窄侧栏下先挤它而不是挤「置顶」标题。
+
+**为什么 chip 里是短名**：`@vfvrpq/dsh-pinned-sessions` 全名在 10px 字号下约 190px，而分组头
+可用宽度约 240px（还要容纳图钉/标题/数量/搜索按钮）。全名会截断成 `@vfvrpq/dsh-pinned-…`，
+不如短名可读；完整名放在 tooltip 与 aria-label，链接目标始终是 scoped 包。想改成显示全名
+只需换 `PACKAGE_SHORT_NAME` 的取值。
+
+**外部跳转怎么落地**：读 `app.asar` 里 `/lib/main.js` 确认——主窗口
+`window.webContents.setWindowOpenHandler` 对 `http:`/`https:` 调 `shell.openExternal(url)` 并
+`deny` 窗口创建（约 11108 行），所以 `target="_blank"` 在桌面端 = 系统浏览器打开；纯 Web
+部署下就是新标签页。**没有**走 `window.open`，也不需要注入 host 能力。
+
+**静态/渲染自检**：64 项全过，本轮新增 6 条——chip 存在且是 `<a>`、文案等于
+`${短名} v${package.json.version}`、`href` 等于 `https://www.npmjs.com/package/${package.json.name}`、
+`target`/`rel` 正确、tooltip 含完整包名与版本、点它调用了 `stopPropagation`。
+因为客户端 bundle 读不到自己的 manifest，`PACKAGE_NAME` / `PACKAGE_VERSION` 是重复字面量，
+这 6 条断言同时充当**版本号同步闸门**（发版忘了改 `lib/client.js` 会直接失败）。
+
+**实机验证**（临时 profile `dsh pinnedverify2 --from-default-profile web --no-open --port 0`
++ Playwright，验证后已删除；安装用 `link:` 依赖，pnpm 直接建软链）：
+
+| 断言 | 结果 |
+| --- | --- |
+| 启动图含插件 | ✅ index HTML 出现 `dsh-pinned-sessions/client.js&rev=…` |
+| chip 渲染 | ✅ 文案 `dsh-pinned-sessions v0.3.0`；`href` = scoped npm 地址；`target=_blank`；`rel="noopener noreferrer"`；tooltip =「在 npm 上打开 @vfvrpq/dsh-pinned-sessions v0.3.0」 |
+| 不被截断 | ✅ chip 宽 136px、x=102（右缘 238），搜索按钮 x=244 未挤压；`scrollWidth == clientWidth`；「置顶」标题 x=42 宽 28 完整可见 |
+| 点击不折叠分组 | ✅ 点击前后 `aria-expanded=true`、行数 3 不变 |
+| 点击的默认行为未被拦 | ✅ 捕获阶段记录 `defaultPrevented=false`、`href` 与 `target` 正确（即新标签/外部浏览器照常打开） |
+| 折叠态仍有 chip | ✅ 收起后行数 0、chip 仍在；再点展开恢复 3 行 |
+| 搜索等原有交互无回归 | ✅ 头部折叠/展开、搜索开关、行点击、取消置顶行为不变 |
+
+**npm 现状（重要）**：`@vfvrpq/dsh-pinned-sessions` 在 registry 上 **404（尚未发布）**，
+所以现在点 chip 会打开一个 404 页面，**发布 0.3.0 后链接才有效**。另外无 scope 的
+`dsh-pinned-sessions` 已被另一位作者（TianYa-DAO，0.2.0）占用——是**另一个**功能相近的插件，
+不是本包；这正是本包改成 scoped 名的原因，chip 的链接也只指向 scoped 包。

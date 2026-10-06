@@ -21,7 +21,7 @@ This plugin gives the pinned set its own group, above the Workspace browser:
 ```
 插件
 自动化任务
-置顶  1  🔍              ← this plugin
+置顶  1  dsh-pinned-sessions v0.3.0  🔍   ← this plugin
    插件笔记：dsh-cost-…   4 小时前
 工作区
 默认工作区
@@ -32,7 +32,7 @@ This plugin gives the pinned set its own group, above the Workspace browser:
 With the search open (the count becomes `matched/total`):
 
 ```
-置顶  1/3  ✕
+置顶  1/3  dsh-pinned-sessions v0.3.0  ✕
    [ 搜索置顶会话              ]
    插件笔记：dsh-cost-…   4 小时前
 ```
@@ -40,6 +40,13 @@ With the search open (the count becomes `matched/total`):
 - rows are drawn with the **native session-row metrics** (32px rows, 14px titles,
   10px relative times, the same hover wash and hover-revealed actions), so the
   group is visually indistinguishable from a workspace group;
+- the header carries the plugin's **npm identity** — `dsh-pinned-sessions v0.3.0` —
+  as a muted chip that links to
+  [`@vfvrpq/dsh-pinned-sessions`](https://www.npmjs.com/package/@vfvrpq/dsh-pinned-sessions)
+  on npm (`target="_blank"`; the desktop shell turns that into `shell.openExternal`,
+  so it opens in your browser instead of inside the app). The chip shows the
+  **unscoped** name because the sidebar is 256px wide; its tooltip/aria-label carry
+  the full scoped name, and clicking it never toggles the group;
 - the header's **outline** pin matches the line-icon style of the sidebar entries
   above it (插件 / 自动化任务); a row's own pin marker stays filled, keeping
   "state" distinct from "navigation";
@@ -144,7 +151,13 @@ factory with stub `require`, runs `apply()` against a fake Client Context and
 renders the group with a hook shim — asserting the entry id, the dictionaries'
 key parity, the anchor selector, pin order, the count, the running dot, the
 unpin toggle (and that it does not also open the row), collapse, the empty hint,
-the archived note, subagent filtering, and the English copy.
+the archived note, subagent filtering, the English copy, and the npm chip (its
+text, its `href`, `target`/`rel`, and that clicking it does not toggle the group).
+
+Because a client bundle cannot read its own manifest, `lib/client.js` repeats the
+package name and version (`PACKAGE_NAME` / `PACKAGE_VERSION`). The chip checks
+compare them against `package.json`, so a version bump that forgets the bundle
+fails the suite instead of shipping a stale chip.
 
 The DOM-mounting half needs a real sidebar, so it is covered by the Playwright
 pass recorded in [VERIFY.md](VERIFY.md).
