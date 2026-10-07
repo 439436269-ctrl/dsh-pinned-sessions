@@ -359,3 +359,17 @@ tooltip 完整性）。
 **仓库侧**：github.com 仍全 IP 不可达，依旧走 Git Data API：7 个改动文件 → blob → tree → commit
 （`0264290a32`）→ 更新 `refs/heads/main` → 建轻量 tag `refs/tags/v0.4.0`（同指向 `0264290a32`）。
 本地提交为 `8ac574c`（内容一致、SHA 不同，对齐方式见 §9）。
+
+## 12. 社区目录 PR 已提交（2026-10-07）
+
+收录仓库：awesome-dsh-plugin/awesome-dsh-plugin。
+**PR #6786** — <https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/6786>
+
+- 内容：新增 `data/plugins/439436269-ctrl__dsh-pinned-sessions.yml`（1 个文件 / +6 行，`category: ui`），
+  PR 描述按 `.github/pull_request_template.md` 逐条勾选，并说明 npm 坐标为
+  `@vfvrpq/dsh-pinned-sessions`（无 scope 的同名包属他人，故用 scope）。
+- 门槛核对：仓库创建 `2026-10-06T13:46:05Z`，提 PR 时已满 24h ✅；`dsh.bundle` 已声明 ✅；
+  `dsh-plugin` topic 在 ✅；目录里无重复条目（本插件与该同名包都未被收录）✅。
+- CI：workflow run「PR check」已触发，但结论为 **`action_required`** —— GitHub 对首次贡献者的标准
+  门槛（维护者批准后才会实际运行 pr-check / pr-gate / pr-guard）。同仓库其他首次投稿的 PR 也是这个
+  状态，属正常等待，不是失败项。
