@@ -341,3 +341,21 @@ body 下的 `[role=menu]` 弹层）；⑦ 用注入的 CSS 把「已置顶工作
 
 **自检**：80 → **81 项**（新增设置行/开关写入、状态点、所属工作区、无 hook 回退、行内不再重复图钉、
 tooltip 完整性）。
+
+## 11. 0.4.0 发布（2026-10-07）
+
+| 项 | 值 |
+| --- | --- |
+| 版本 | `@vfvrpq/dsh-pinned-sessions@0.4.0`（`dist-tags.latest`，promote 完成于 2026-10-07T13:28:02Z 之后约 3.5 分钟） |
+| dist.shasum / sha1 | `732d4e4c7c71a35a5bf79dbafc5a04568e9887f2` |
+| fileCount / unpackedSize | 8 / 60509 |
+| 回读校验 | `verify_npm_artifact.py` 全绿：下载产物 sha1 == dist.shasum、integrity(sha512) 通过、本地 tgz 与 registry 产物**逐字节一致**、逐文件 7 一致 / 1 差异（`package.json`，npm 重写键序，语义相同） |
+| 隐私扫描 | 包内无 token / 家目录 / 设备序列号等命中 |
+
+**发布方式**：同 0.3.1 —— 临时 npmrc（600）承载那枚会话历史里残留的 Automation token，
+`pnpm publish --no-git-checks`，发完立刻删除临时文件；**staged publishing 窗口约 3.5 分钟**
+（packument 先出现 0.4.0、tarball URL 再滞后约 2 分钟才 200，属正常 CDN 传播）。
+
+**仓库侧**：github.com 仍全 IP 不可达，依旧走 Git Data API：7 个改动文件 → blob → tree → commit
+（`0264290a32`）→ 更新 `refs/heads/main` → 建轻量 tag `refs/tags/v0.4.0`（同指向 `0264290a32`）。
+本地提交为 `8ac574c`（内容一致、SHA 不同，对齐方式见 §9）。
