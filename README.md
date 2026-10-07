@@ -21,7 +21,7 @@ This plugin gives the pinned set its own group, above the Workspace browser:
 ```
 插件
 自动化任务
-置顶  1  dsh-pinned-sessions v0.3.0  🔍   ← this plugin
+置顶  1  dsh-pinned-sessions v0.3.1  🔍   ← this plugin
    插件笔记：dsh-cost-…   4 小时前
 工作区
 默认工作区
@@ -32,7 +32,7 @@ This plugin gives the pinned set its own group, above the Workspace browser:
 With the search open (the count becomes `matched/total`):
 
 ```
-置顶  1/3  dsh-pinned-sessions v0.3.0  ✕
+置顶  1/3  dsh-pinned-sessions v0.3.1  ✕
    [ 搜索置顶会话              ]
    插件笔记：dsh-cost-…   4 小时前
 ```
@@ -40,7 +40,7 @@ With the search open (the count becomes `matched/total`):
 - rows are drawn with the **native session-row metrics** (32px rows, 14px titles,
   10px relative times, the same hover wash and hover-revealed actions), so the
   group is visually indistinguishable from a workspace group;
-- the header carries the plugin's **npm identity** — `dsh-pinned-sessions v0.3.0` —
+- the header carries the plugin's **npm identity** — `dsh-pinned-sessions v0.3.1` —
   as a muted chip that links to
   [`@vfvrpq/dsh-pinned-sessions`](https://www.npmjs.com/package/@vfvrpq/dsh-pinned-sessions)
   on npm (`target="_blank"`; the desktop shell turns that into `shell.openExternal`,

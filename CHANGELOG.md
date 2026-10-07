@@ -3,6 +3,19 @@
 All notable changes to this plugin. Dates are the local (Asia/Shanghai) day the
 change was verified on DSH Desktop 0.2.0-rc.2.
 
+## 0.3.1 — 2026-10-07
+
+- Documentation-only release: the published 0.3.0 tarball still carried the 0.3.0
+  draft of this file (its entry said the rendering behaviour was unchanged), so the
+  npm artifact described one release behind what it actually shipped. No behaviour
+  change: `lib/client.js` differs only in the version constant the header chip
+  prints, and `lib/index.js`, `cordis.patch.yml` and `LICENSE` are byte-identical to
+  0.3.0.
+- The READMEs' chip examples were refreshed from `v0.3.0` to `v0.3.1`.
+- Listed in the community directory: a pull request adding
+  `data/plugins/439436269-ctrl__dsh-pinned-sessions.yml` to
+  [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin).
+
 ## 0.3.0 — 2026-10-06
 
 - **Renamed to `@vfvrpq/dsh-pinned-sessions`.** The unscoped name

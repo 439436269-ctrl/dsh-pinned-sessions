@@ -19,7 +19,7 @@ DSH 本身已经支持**置顶会话**（悬停会话行点图钉，或右键 �
 ```
 插件
 自动化任务
-置顶  1  dsh-pinned-sessions v0.3.0  🔍   ← 本插件
+置顶  1  dsh-pinned-sessions v0.3.1  🔍   ← 本插件
    插件笔记：dsh-cost-…   4 小时前
 工作区
 默认工作区
@@ -30,14 +30,14 @@ DSH 本身已经支持**置顶会话**（悬停会话行点图钉，或右键 �
 打开搜索时（数量变成 `命中/总数`）：
 
 ```
-置顶  1/3  dsh-pinned-sessions v0.3.0  ✕
+置顶  1/3  dsh-pinned-sessions v0.3.1  ✕
    [ 搜索置顶会话              ]
    插件笔记：dsh-cost-…   4 小时前
 ```
 
 - 行用的是**原生会话行的同一套度量**（32px 行高、14px 标题、10px 相对时间、同样的悬停底色
   与悬停才出现的行操作），所以这个分组跟工作区分组在视觉上完全一致；
-- 分组头带这个插件的 **npm 身份**——`dsh-pinned-sessions v0.3.0`，一小段灰字，点它跳到 npm 上的
+- 分组头带这个插件的 **npm 身份**——`dsh-pinned-sessions v0.3.1`，一小段灰字，点它跳到 npm 上的
   [`@vfvrpq/dsh-pinned-sessions`](https://www.npmjs.com/package/@vfvrpq/dsh-pinned-sessions)
   （`target="_blank"`；桌面壳会把它转成 `shell.openExternal`，所以在系统浏览器里打开，而不是
   应用内跳转）。侧栏只有 256px，chip 显示**去掉 scope 的短名**，完整包名放在 tooltip /
