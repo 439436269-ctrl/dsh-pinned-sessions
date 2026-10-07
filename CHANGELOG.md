@@ -3,6 +3,35 @@
 All notable changes to this plugin. Dates are the local (Asia/Shanghai) day the
 change was verified on DSH Desktop 0.2.0-rc.2.
 
+## 0.4.0 — 2026-10-07
+
+Read the other plugin that shares this feature space — [TianYa-DAO/dsh-pinned-sessions](https://github.com/TianYa-DAO/dsh-pinned-sessions)
+(npm `dsh-pinned-sessions`, unrelated to this package) — and adopted the ideas that
+held up, keeping the native pin as the single source of truth.
+
+- **The group now lives inside the native list's own scroll container**, as its
+  first item, instead of floating above the whole browser. It sits directly under
+  the 「工作区」 header like any other group, shares the list's single scrollbar, and
+  can no longer squeeze the native list when many sessions are pinned.
+- **It steps aside while the native list shows search results**, so a floating
+  group never covers them.
+- **Rows carry the owning workspace** (`默认工作区`) next to the title — the
+  reference's most useful addition for a cross-workspace list. The relative time
+  moves into the row tooltip, and the redundant per-row pin marker is gone (every
+  row in this group is pinned); the header keeps the outline pin.
+- **Status dots come from the real session-status hook** (`useSessionStatus`):
+  running (blue) and finished-but-unopened (green). Without the hook the row falls
+  back to the summary's own `running` flag.
+- **A Settings → 通用 switch** (「置顶会话区」) turns the group off without editing
+  files; it shares one preference source with the mount, so the two can never
+  disagree.
+- The mount revalidates on an interval as well as on DOM mutations, so it
+  recovers if the native tree is swapped without a mutation the observer sees.
+
+Deliberately **not** adopted: a second, plugin-owned pin state (the reference's
+「全局置顶」). This plugin writes the native pin instead — one concept, Host-persisted,
+shared with the built-in pin UI — and does not reorder or hide native rows.
+
 ## 0.3.1 — 2026-10-07
 
 - Documentation-only release: the published 0.3.0 tarball still carried the 0.3.0

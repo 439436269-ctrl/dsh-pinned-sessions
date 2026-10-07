@@ -65,7 +65,22 @@ const source = readFileSync(join(root, pkg.exports["./client"].default), "utf8")
 const icon = (name) => function Icon(props) {
 	return React.createElement("svg", { "data-icon": name, width: props?.size });
 };
-const primitives = new Proxy({}, { get: (_target, name) => (typeof name === "string" && name.startsWith("Icon") ? icon(name) : undefined) });
+const primitives = new Proxy({}, {
+	get: (_target, name) => {
+		if (name === "Switch") {
+			return function Switch(props) {
+				return React.createElement("button", {
+					role: "switch",
+					"aria-checked": props.checked === true ? "true" : "false",
+					title: props.label,
+					"data-testid": "fake-switch",
+					onClick: () => props.onChange?.(props.checked !== true)
+				});
+			};
+		}
+		return typeof name === "string" && name.startsWith("Icon") ? icon(name) : undefined;
+	}
+});
 const reactDom = { createPortal: (children, container) => React.createElement("portal", { "data-target": container?.className }, children) };
 
 let registrations = [];
@@ -120,15 +135,30 @@ check("inject declares every service the plugin reads", ["slots", "sessions", "w
 //#endregion
 
 //#region apply() registrations
-check("registers exactly one slot entry", registrations.length === 1, registrations.map((row) => `${row.options.name}#${row.options.id}`).join(","));
-const section = registrations[0];
-check("the entry mounts on the always-rendered shell.overlay seat", section?.options.name === "shell.overlay", section?.options.name);
-check("the entry id is stable", section?.options.id === "pinned-sessions-section", section?.options.id);
-check("the entry uses the pinnedSessions dictionary", section?.options.locale === "pinnedSessions");
+check("registers exactly two slot entries", registrations.length === 2, registrations.map((row) => `${row.options.name}#${row.options.id}`).join(","));
+const section = registrations.find((row) => row.options.name === "shell.overlay");
+const settingsEntry = registrations.find((row) => row.options.name === "settings.general.item");
+check("the section mounts on the always-rendered shell.overlay seat", section?.options.name === "shell.overlay", section?.options.name);
+check("the section id is stable", section?.options.id === "pinned-sessions-section", section?.options.id);
+check("the section uses the pinnedSessions dictionary", section?.options.locale === "pinnedSessions");
+check("the visibility switch is a settings.general.item row", settingsEntry?.options.id === "pinned-sessions" && settingsEntry?.options.order === 30, `${settingsEntry?.options.id}@${settingsEntry?.options.order}`);
+check("the settings row uses the same dictionary", settingsEntry?.options.locale === "pinnedSessions");
 check("zh and en dictionaries share one key set", JSON.stringify(Object.keys(dictionary.dicts.zh).sort()) === JSON.stringify(Object.keys(dictionary.dicts.en).sort()));
 const injected = typeof section.options.inject === "function" ? section.options.inject() : undefined;
 check("inject face exposes the stores and both mutations", injected !== undefined && typeof injected.openSession === "function" && typeof injected.unpinSession === "function" && typeof injected.sessionsStore?.getSnapshot === "function" && typeof injected.workspacesStore?.getSnapshot === "function", Object.keys(injected ?? {}).join(","));
 check("anchor selector targets the workspace outlet", booted.exported.__test__?.ANCHOR_SELECTOR === 'div[data-slot="sidebar.workspaces"]', booted.exported.__test__?.ANCHOR_SELECTOR);
+//#endregion
+
+//#region visibility preference
+const { enabledSource } = booted.exported.__test__;
+check("the section starts visible", enabledSource.getSnapshot() === true, String(enabledSource.getSnapshot()));
+let prefNotifications = 0;
+const stopPref = enabledSource.subscribe(() => { prefNotifications += 1; });
+enabledSource.set(false);
+check("switching it off flips the shared source and notifies", enabledSource.getSnapshot() === false && prefNotifications === 1, `value=${enabledSource.getSnapshot()} notifications=${prefNotifications}`);
+enabledSource.set(true);
+stopPref();
+check("switching it back on restores the default", enabledSource.getSnapshot() === true && prefNotifications === 2, String(enabledSource.getSnapshot()));
 //#endregion
 
 //#region render smoke test
@@ -145,23 +175,34 @@ function expand(node) {
 	return React.cloneElement(node, undefined, children.length === 0 ? undefined : children);
 }
 /** Render the section with a hook shim; `stateOverrides` feeds useState in call order. */
+/**
+ * One materialized bundle instance for every render below — the real app has
+ * exactly one, and the shared preference source is module state inside it, so a
+ * fresh boot per render would test a different instance than the one the
+ * settings row writes to.
+ */
+const shimState = { overrides: [], index: 0 };
+const sharedFace = {
+	...React,
+	useState: (initial) => {
+		const slot = shimState.index++;
+		const value = typeof initial === "function" ? initial() : initial;
+		return [slot < shimState.overrides.length ? shimState.overrides[slot] : value, () => {}];
+	},
+	useCallback: (fn) => fn,
+	useMemo: (fn) => fn(),
+	useEffect: () => {},
+	useSyncExternalStore: (_subscribe, getSnapshot) => getSnapshot()
+};
+const liveBundle = boot(sharedFace);
+/** Render one component from the shared bundle, resetting the hook counters. */
+function renderComponent(name, props, stateOverrides = []) {
+	shimState.overrides = stateOverrides;
+	shimState.index = 0;
+	return expand(liveBundle.exported.__test__[name](props));
+}
 function renderSection(props, stateOverrides = []) {
-	let index = 0;
-	const face = {
-		...React,
-		useState: (initial) => {
-			const slot = index++;
-			const value = typeof initial === "function" ? initial() : initial;
-			return [slot < stateOverrides.length ? stateOverrides[slot] : value, () => {}];
-		},
-		useCallback: (fn) => fn,
-		useMemo: (fn) => fn(),
-		useEffect: () => {},
-		useSyncExternalStore: (_subscribe, getSnapshot) => getSnapshot()
-	};
-	const bundle = boot(face);
-	const Section = bundle.exported.__test__.PinnedSection;
-	return expand(Section(props));
+	return renderComponent("PinnedSection", props, stateOverrides);
 }
 /** Depth-first collection by testid. */
 function collect(node, testid, out = []) {
@@ -249,6 +290,33 @@ check("rows are native-shaped treeitems", rows.every((row) => row.type === "li" 
 check("pinned rows expose an unpin toggle", collect(tree, "pinned-sessions-unpin").length === 3, String(collect(tree, "pinned-sessions-unpin").length));
 check("running sessions carry the state dot", collectByClass(tree, "dshps_dot").length === 1, String(collectByClass(tree, "dshps_dot").length));
 check("each row shows a relative time", textOf(tree).includes("小时前") && textOf(tree).includes("分钟前"), textOf(tree).slice(0, 120));
+check("rows carry the owning workspace label", collect(tree, "pinned-sessions-where").map((node) => textOf(node)).join(",") === "默认工作区,默认工作区,另一个工作区", collect(tree, "pinned-sessions-where").map((node) => textOf(node)).join(","));
+
+/** A status map source, exactly the shape the root `sessionStatus` hook hands over. */
+const statusMap = new Map([
+	["s1", { running: false, completionUnread: true }],
+	["s2", { running: true, completionUnread: false }]
+]);
+const withStatus = renderSection({ ...baseProps, useSessionStatus: () => statusMap });
+check("the running dot comes from the status hook", collect(withStatus, "pinned-sessions-running").length === 1, String(collect(withStatus, "pinned-sessions-running").length));
+check("a finished-but-unopened session gets the unread dot", collect(withStatus, "pinned-sessions-unread").length === 1, String(collect(withStatus, "pinned-sessions-unread").length));
+check("the unread dot is styled apart from the running one", collectByClass(withStatus, "dshps_dotUnread").length === 1);
+const noHook = renderSection({ ...baseProps, useSessionStatus: undefined, sessionsStore: store({ ...sessionsA, byId: { ...sessionsA.byId, s1: { ...sessionsA.byId.s1, completionUnread: true } } }) });
+check("without the hook only the summary flag can light a dot", collect(noHook, "pinned-sessions-unread").length === 0, String(collect(noHook, "pinned-sessions-unread").length));
+
+//#region settings row
+const settingsTree = renderComponent("PinnedSettingsRow", { t });
+check("the settings row names the group and explains it", textOf(settingsTree).includes("置顶会话区") && textOf(settingsTree).includes("工作区"), textOf(settingsTree));
+check("the settings row renders the native switch", collect(settingsTree, "fake-switch").length === 1);
+const switchOff = collect(settingsTree, "fake-switch")[0];
+check("the switch reflects the shared preference", switchOff?.props["aria-checked"] === "true", String(switchOff?.props["aria-checked"]));
+switchOff.props.onClick();
+check("flipping the switch writes the shared preference", liveBundle.exported.__test__.enabledSource.getSnapshot() === false, String(liveBundle.exported.__test__.enabledSource.getSnapshot()));
+const settingsOff = renderComponent("PinnedSettingsRow", { t });
+check("the row re-renders switched off", collect(settingsOff, "fake-switch")[0]?.props["aria-checked"] === "false");
+liveBundle.exported.__test__.enabledSource.set(true);
+check("and can be switched back on", liveBundle.exported.__test__.enabledSource.getSnapshot() === true);
+//#endregion
 rows[0].props.onClick();
 check("clicking a row opens that session", JSON.stringify(opened) === JSON.stringify(["s2"]), JSON.stringify(opened));
 const unpinButton = collect(rows[0], "pinned-sessions-unpin")[0];
@@ -284,8 +352,13 @@ check("english copy renders from the same keys", textOf(enTree).includes("Pinned
 const iconName = (node) => React.Children.toArray(node?.props?.children)[0]?.props?.["data-icon"];
 const glyph = collectByClass(tree, "dshps_glyph")[0];
 check("the group glyph is the outline pin, matching the sidebar's other entries", iconName(glyph) === "IconPinOutlineRegular", String(iconName(glyph)));
-const rowPin = collectByClass(rows[0], "dshps_pin")[0];
-check("a row's pinned marker stays filled (state, not navigation)", iconName(rowPin) === "IconPinFillRegular", String(iconName(rowPin)));
+/*
+ * Rows do not repeat a pin marker: every row in this group is pinned, so the
+ * marker would be noise and it costs title width in a 256px sidebar. The marker
+ * stays on the header (navigation); a native list row keeps its own (state).
+ */
+check("rows do not repeat the pin marker", collectByClass(rows[0], "dshps_pin").length === 0);
+check("the row tooltip carries the title, the workspace and the time", String(rows[0]?.props.title).includes("默认工作区") && String(rows[0]?.props.title).includes("小时前"), String(rows[0]?.props.title));
 
 /*
  * Native convention, from @deepseek-ai/dsh-client-ui-workspace's Rows.module.css:

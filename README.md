@@ -21,9 +21,9 @@ This plugin gives the pinned set its own group, above the Workspace browser:
 ```
 插件
 自动化任务
-置顶  1  dsh-pinned-sessions v0.3.1  🔍   ← this plugin
-   插件笔记：dsh-cost-…   4 小时前
-工作区
+工作区                        ← the native section header
+置顶  1  dsh-pinned-sessions v0.4.0  🔍   ← this plugin, inside the list
+   插件笔记：dsh-cost-…   默认工作区   4 小时前
 默认工作区
    新会话
    …
@@ -32,15 +32,24 @@ This plugin gives the pinned set its own group, above the Workspace browser:
 With the search open (the count becomes `matched/total`):
 
 ```
-置顶  1/3  dsh-pinned-sessions v0.3.1  ✕
+置顶  1/3  dsh-pinned-sessions v0.4.0  ✕
    [ 搜索置顶会话              ]
    插件笔记：dsh-cost-…   4 小时前
 ```
 
 - rows are drawn with the **native session-row metrics** (32px rows, 14px titles,
-  10px relative times, the same hover wash and hover-revealed actions), so the
-  group is visually indistinguishable from a workspace group;
-- the header carries the plugin's **npm identity** — `dsh-pinned-sessions v0.3.1` —
+  10px meta, the same hover wash and hover-revealed actions), so the group is
+  visually indistinguishable from a workspace group;
+- the group is mounted **inside the native list's own scroll container**, as its
+  first item: it sits under the 「工作区」 header with the same scrollbar as the
+  groups below, never squeezes them, and steps aside while the list shows search
+  results;
+- each row shows **which workspace it belongs to** (`默认工作区`) and carries the
+  session's own status dot — running (blue) or finished-but-unopened (green) — from
+  the real session-status hook; title, workspace and time also ride the row tooltip;
+- **Settings → 通用** has a 「置顶会话区」 switch, so the group can be turned off
+  without editing anything;
+- the header carries the plugin's **npm identity** — `dsh-pinned-sessions v0.4.0` —
   as a muted chip that links to
   [`@vfvrpq/dsh-pinned-sessions`](https://www.npmjs.com/package/@vfvrpq/dsh-pinned-sessions)
   on npm (`target="_blank"`; the desktop shell turns that into `shell.openExternal`,
@@ -89,6 +98,10 @@ sibling inside the region, and portals the group into that host node:
   survives re-renders and sidebar collapse/expand;
 - if the anchor ever disappears (a future DSH changes the sidebar), the plugin
   renders nothing instead of breaking anything.
+
+## Feedback
+
+Bugs and ideas: [Issues](https://github.com/439436269-ctrl/dsh-pinned-sessions/issues).
 
 ## Install
 

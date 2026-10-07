@@ -302,3 +302,42 @@ description:
 门槛逐条核对：`dsh.bundle` 已声明 ✅、有真实代码 ✅、仓库有 `dsh-plugin` topic ✅、目录里**无重复条目**
 （本插件与 TianYa-DAO 的同名插件都未收录；后者在目录里只有 `dsh-wallpaper-engine`）✅、仓库年龄 —— 创建于
 `2026-10-06T13:46:05Z`，**本地 21:46 才满 24h**，所以 PR 排到过线后再开（提前开会吃 CI 的 age 检查）。
+
+## 10. 0.4.0 —— 借鉴同题插件（TianYa-DAO/dsh-pinned-sessions）后的改造（2026-10-07）
+
+**参考对象**：npm 上那个无 scope 的同名包 `dsh-pinned-sessions@0.2.0`（作者 TianYa-DAO，仓库
+github.com/TianYa-DAO/dsh-pinned-sessions）。做法是把 tarball 拉下来读实际产物（`client.js` 41KB、
+`index.js`、`cordis.patch.yml`、`tests/selfcheck.cjs`），并从 api.github.com 侧读它的 README。
+
+**它做了什么（要点）**：① 把自己的一套置顶状态（`pinnedSessions`/`pinnedWorkspaces`）存在客户端
+store + localStorage（`dsh.pinned-sessions.prefs.v1`），与原生「置顶」是两个概念；② 插进**原生列表
+自己的滚动容器顶部**，`insertBefore(node, scroller.firstChild)`，靠类名后缀定位
+`listArea` / `_list`；③ 分「全局置顶 / 进行中 / 待查看 / 当前打开 / 置顶工作区」五段，状态取自
+`useSessionStatus`；④ 行 = 状态点 + 标题 + 所属工作区 + `×`；⑤ 注册三个槽：
+`sidebar.workspaces.session.menu.item`（官方菜单项）、`shell.overlay`（挂载点）、
+`settings.general.item`（开关）；⑥ 工作区「...」菜单没有槽位，于是 DOM 注入（找 `menuOpen` 行 +
+body 下的 `[role=menu]` 弹层）；⑦ 用注入的 CSS 把「已置顶工作区」的原分组 `display:none`；⑧ 观察者
+之外还加 `setInterval` 兜底重挂。
+
+**采纳（并各自验证）**：
+
+| 采纳项 | 为什么 | 实测 |
+| --- | --- | --- |
+| 挂载进原生列表滚动容器（第一项） | 之前挂在浏览器外面，置顶多了会把原生列表压扁；挂进去后与「工作区」标题同层级、共用一条滚动条 | ✅ host 是 scroller 的 `firstElementChild`；`工作区` 标题仍在滚动容器外、位于其上方 |
+| 原生搜索出结果时避让 | 浮在上面的分组会盖住搜索结果 | ✅ 输入「插件」→ 原生结果 6 条时 host 自动 detach；清空后自动挂回 |
+| 行内显示所属工作区 | 跨工作区列表里「这条会话在哪」比「多久前」更有信息量（时间移入 tooltip） | ✅ 两行都显示「默认工作区」，tooltip = 标题 · 工作区 · 时间 |
+| 状态点取自 `useSessionStatus` | 之前只读 summary 的 `running`，拿不到「跑完未查看」 | ✅ 单测覆盖 running/unread/无 hook 回退三种路径 |
+| `settings.general.item` 开关（设置 → 通用） | 关掉分组不该靠改文件 | ✅ 行文案「置顶会话区」+ 原生 `Switch`；关掉后 host 与分组消失、原生 11 行不受影响、pref 落 localStorage；再开恢复且仍是 scroller 第一项 |
+| 观察者 + 定时兜底 | 原生树被整体替换时 observer 可能看不到 | ✅ 加了 1500ms `ensure` 轮询 |
+
+**刻意不采纳**：① 自己再存一套置顶状态（它的「全局置顶」）—— 我们继续用**原生 pin**（Host 持久化、
+与内置置顶 UI 共享一个事实源），避免同一菜单里出现两种置顶；② 不复制它的「置顶工作区并隐藏原分组」
+（注入 CSS 隐藏别的插件渲染的行，越界且有副作用）；③ 不做状态分组（进行中/待查看/当前打开）——
+本插件的定位是「置顶分组」，状态只用点表示。
+
+**顺带修掉的视觉问题**：行里原本有「工作区 + 时间 + 置顶图钉」三个尾巴，把标题挤到 ~90px；去掉
+逐行的置顶图钉（整个分组都是置顶的，冗余）并把 `where` 收到 40% 后，标题回到 112px，tooltip 补全
+全部信息。
+
+**自检**：80 → **81 项**（新增设置行/开关写入、状态点、所属工作区、无 hook 回退、行内不再重复图钉、
+tooltip 完整性）。
