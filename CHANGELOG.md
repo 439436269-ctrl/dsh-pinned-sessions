@@ -3,6 +3,25 @@
 All notable changes to this plugin. Dates are the local (Asia/Shanghai) day the
 change was verified on DSH Desktop 0.2.0-rc.2.
 
+## 0.4.1 — 2026-10-20
+
+The pinned rows could look idle while the very same session was spinning in the
+native list below: the status was never actually wired.
+
+- **Session status now comes from `uiSession.sessionStatus`**, the store the native
+  sidebar rows read, instead of a `useSessionStatus` prop that `apply()` never
+  supplied. A run that starts *after* mount therefore lights the pinned row too;
+  the summary's own `running` flag stays only as a fallback for a status map that
+  does not know the Session yet.
+- **The dot is the native `StateDot`**: `ongoing` renders the same rotating arc as
+  the sidebar rows (a private 6px blue circle could not show motion), `done` is the
+  green unread dot, and a pending approval / plan review / question is an amber dot
+  whose compact label (「待审批」/「计划待审」/「待回答」) replaces the timestamp,
+  mirroring the native row's precedence.
+- `inject` declares `uiSession`, and the inject face exposes `statusStore`; the
+  self-check now boots a fake `uiSession`, asserts the store is passed through, and
+  covers ongoing / done / warning, the summary fallback, and the trailing label.
+
 ## 0.4.0 — 2026-10-07
 
 Read the other plugin that shares this feature space — [TianYa-DAO/dsh-pinned-sessions](https://github.com/TianYa-DAO/dsh-pinned-sessions)

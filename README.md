@@ -22,7 +22,7 @@ This plugin gives the pinned set its own group, above the Workspace browser:
 插件
 自动化任务
 工作区                        ← the native section header
-置顶  1  dsh-pinned-sessions v0.4.0  🔍   ← this plugin, inside the list
+置顶  1  dsh-pinned-sessions v0.4.1  🔍   ← this plugin, inside the list
    插件笔记：dsh-cost-…   默认工作区   4 小时前
 默认工作区
    新会话
@@ -32,7 +32,7 @@ This plugin gives the pinned set its own group, above the Workspace browser:
 With the search open (the count becomes `matched/total`):
 
 ```
-置顶  1/3  dsh-pinned-sessions v0.4.0  ✕
+置顶  1/3  dsh-pinned-sessions v0.4.1  ✕
    [ 搜索置顶会话              ]
    插件笔记：dsh-cost-…   4 小时前
 ```
@@ -45,11 +45,14 @@ With the search open (the count becomes `matched/total`):
   groups below, never squeezes them, and steps aside while the list shows search
   results;
 - each row shows **which workspace it belongs to** (`默认工作区`) and carries the
-  session's own status dot — running (blue) or finished-but-unopened (green) — from
-  the real session-status hook; title, workspace and time also ride the row tooltip;
+  session's own status dot from the **same store the native rows read**
+  (`uiSession.sessionStatus`): running is the native rotating arc, finished-but-unopened
+  is a green dot, and a pending approval / plan review / question is an amber dot whose
+  compact label (「待审批」) replaces the timestamp; title, workspace and time also ride
+  the row tooltip;
 - **Settings → 通用** has a 「置顶会话区」 switch, so the group can be turned off
   without editing anything;
-- the header carries the plugin's **npm identity** — `dsh-pinned-sessions v0.4.0` —
+- the header carries the plugin's **npm identity** — `dsh-pinned-sessions v0.4.1` —
   as a muted chip that links to
   [`@vfvrpq/dsh-pinned-sessions`](https://www.npmjs.com/package/@vfvrpq/dsh-pinned-sessions)
   on npm (`target="_blank"`; the desktop shell turns that into `shell.openExternal`,

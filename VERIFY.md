@@ -373,3 +373,38 @@ tooltip 完整性）。
 - CI：workflow run「PR check」已触发，但结论为 **`action_required`** —— GitHub 对首次贡献者的标准
   门槛（维护者批准后才会实际运行 pr-check / pr-gate / pr-guard）。同仓库其他首次投稿的 PR 也是这个
   状态，属正常等待，不是失败项。
+
+## 13. 0.4.1 —— 置顶行不显示 loading（2026-10-20）
+
+**现象**：原生列表里同一会话在转圈（`StateDot state="ongoing"`），置顶分组里那一行左侧却是空的。
+
+**根因**：`PinnedSection` 读的是 props 里的 `useSessionStatus`，但 `apply()` 的 inject face
+**从来没传过它**——`inject` 服务表里也没有 `uiSession`。于是 `statuses` 恒为 `undefined`，
+只剩 `summary.running` 这一路兜底；而会话列表快照保留的是加载时那个标志，挂载之后才开始的运行
+只通过 `api-session/status` 事件进入 `uiSession.sessionStatus`，不会回写快照。挂载即空闲的会话，
+就永远等不到那一次重渲染。
+
+**改法**：
+
+| 点 | 改成 |
+| --- | --- |
+| 状态来源 | `ctx.uiSession.sessionStatus`（与原生行同一个 store），`inject` 把 `uiSession` 列进去 |
+| 渲染 | 原生 `StateDot`：`ongoing` 是同一个旋转弧，`done` 绿点，`warning` 黄点 |
+| 优先级 | 待审批 / 计划待审 / 待回答 > 进行中 > 跑完未查看，与 `sessionStatuses()` 一致；告警时紧凑标签替换时间 |
+| 兜底 | status 里没有该会话时仍用 `summary.running`；store 缺席时用模块级空 store（`useSyncExternalStore` 需要稳定身份） |
+
+**验证**（验到读者能感知的那一层）：
+
+1. `node test/bundle-check.mjs`：新增 fake `uiSession`、断言 `statusStore` 透传；覆盖
+   ongoing / done / warning、告警紧凑标签、store 缺席时的 summary 兜底。**全部通过**。
+2. 真实客户端：起 headless Edge + CDP，用本机 `client-connection/browser-session` 签名密钥
+   现签一枚 cookie（不碰进程内 launch token），打开 `127.0.0.1:58146`，读 DOM：
+   - 置顶 6 行里，正在跑的「将编排 skill 转为 agent 模式」那行 `firstElementChild` 为
+     `<span class="dshps_slot" role="img" aria-label="进行中" data-testid="pinned-sessions-running">
+      <svg class="_spinner_…" data-state="ongoing" …>`；
+   - 同一会话在原生列表里的行同样是 `data-state="ongoing"` 的 spinner —— 两处一致；
+   - 其余 5 行 slot 为空（空闲），头部 chip 显示 `v0.4.1`。
+3. 截图（本机临时产物，不入库）目视复核：置顶行左侧可见旋转弧，与原生行同相。
+
+**顺带**：两个 README 的「状态点取自 hook」改为「取自 `uiSession.sessionStatus`」，
+补上告警态与紧凑标签的说明；版本升到 0.4.1。

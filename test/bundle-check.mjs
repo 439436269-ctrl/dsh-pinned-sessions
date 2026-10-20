@@ -78,6 +78,11 @@ const primitives = new Proxy({}, {
 				});
 			};
 		}
+		if (name === "StateDot") {
+			return function StateDot(props) {
+				return React.createElement("span", { "data-state": props.state, "data-testid": "fake-state-dot" });
+			};
+		}
 		return typeof name === "string" && name.startsWith("Icon") ? icon(name) : undefined;
 	}
 });
@@ -107,6 +112,7 @@ function boot(reactFace) {
 			unpinSession: async () => {}
 		},
 		uiWorkspace: { openSession: () => {} },
+		uiSession: { sessionStatus: { getSnapshot: () => new Map(), subscribe: () => () => {} } },
 		locale: {
 			register: (ns, dicts) => { dictionary = { ns, dicts }; return () => {}; },
 			bind: (ns) => (key, params) => {
@@ -131,7 +137,7 @@ check("bundle registers with the module loader", registration !== undefined);
 check("registered id equals the package name", registration?.id === pkg.name, registration?.id);
 check("bundle exports apply()", typeof booted.exported.apply === "function");
 check("bundle exports inject[]", Array.isArray(booted.exported.inject));
-check("inject declares every service the plugin reads", ["slots", "sessions", "workspaces", "uiWorkspace", "locale"].every((name) => booted.exported.inject.includes(name)), booted.exported.inject.join(","));
+check("inject declares every service the plugin reads", ["slots", "sessions", "workspaces", "uiWorkspace", "uiSession", "locale"].every((name) => booted.exported.inject.includes(name)), booted.exported.inject.join(","));
 //#endregion
 
 //#region apply() registrations
@@ -145,7 +151,7 @@ check("the visibility switch is a settings.general.item row", settingsEntry?.opt
 check("the settings row uses the same dictionary", settingsEntry?.options.locale === "pinnedSessions");
 check("zh and en dictionaries share one key set", JSON.stringify(Object.keys(dictionary.dicts.zh).sort()) === JSON.stringify(Object.keys(dictionary.dicts.en).sort()));
 const injected = typeof section.options.inject === "function" ? section.options.inject() : undefined;
-check("inject face exposes the stores and both mutations", injected !== undefined && typeof injected.openSession === "function" && typeof injected.unpinSession === "function" && typeof injected.sessionsStore?.getSnapshot === "function" && typeof injected.workspacesStore?.getSnapshot === "function", Object.keys(injected ?? {}).join(","));
+check("inject face exposes the stores and both mutations", injected !== undefined && typeof injected.openSession === "function" && typeof injected.unpinSession === "function" && typeof injected.sessionsStore?.getSnapshot === "function" && typeof injected.workspacesStore?.getSnapshot === "function" && typeof injected.statusStore?.getSnapshot === "function", Object.keys(injected ?? {}).join(","));
 check("anchor selector targets the workspace outlet", booted.exported.__test__?.ANCHOR_SELECTOR === 'div[data-slot="sidebar.workspaces"]', booted.exported.__test__?.ANCHOR_SELECTOR);
 //#endregion
 
@@ -262,6 +268,7 @@ const unpinned = [];
 const baseProps = {
 	sessionsStore: store(sessionsA),
 	workspacesStore: store(workspacesA),
+	statusStore: store(new Map()),
 	openSession: (id) => opened.push(id),
 	unpinSession: (id) => unpinned.push(id),
 	t
@@ -288,21 +295,26 @@ check("every visible pinned session gets a row", rows.length === 3, String(rows.
 check("rows keep the pin order", JSON.stringify(rows.map((row) => row.props["data-session-id"])) === JSON.stringify(["s2", "s1", "s4"]), rows.map((row) => row.props["data-session-id"]).join(","));
 check("rows are native-shaped treeitems", rows.every((row) => row.type === "li" && row.props.role === "treeitem" && row.props.tabIndex === 0));
 check("pinned rows expose an unpin toggle", collect(tree, "pinned-sessions-unpin").length === 3, String(collect(tree, "pinned-sessions-unpin").length));
-check("running sessions carry the state dot", collectByClass(tree, "dshps_dot").length === 1, String(collectByClass(tree, "dshps_dot").length));
+check("running sessions carry the native spinner", collect(tree, "pinned-sessions-running").length === 1, String(collect(tree, "pinned-sessions-running").length));
+check("the running state is the native ongoing dot", collect(rows[0], "fake-state-dot")[0]?.props["data-state"] === "ongoing", JSON.stringify(collect(rows[0], "fake-state-dot")[0]?.props));
 check("each row shows a relative time", textOf(tree).includes("小时前") && textOf(tree).includes("分钟前"), textOf(tree).slice(0, 120));
 check("rows carry the owning workspace label", collect(tree, "pinned-sessions-where").map((node) => textOf(node)).join(",") === "默认工作区,默认工作区,另一个工作区", collect(tree, "pinned-sessions-where").map((node) => textOf(node)).join(","));
 
-/** A status map source, exactly the shape the root `sessionStatus` hook hands over. */
+/** A status map source, exactly the shape `uiSession.sessionStatus` hands over. */
 const statusMap = new Map([
 	["s1", { running: false, completionUnread: true }],
 	["s2", { running: true, completionUnread: false }]
 ]);
-const withStatus = renderSection({ ...baseProps, useSessionStatus: () => statusMap });
-check("the running dot comes from the status hook", collect(withStatus, "pinned-sessions-running").length === 1, String(collect(withStatus, "pinned-sessions-running").length));
+const withStatus = renderSection({ ...baseProps, statusStore: store(statusMap) });
+check("the running state comes from the status store", collect(withStatus, "pinned-sessions-running").length === 1, String(collect(withStatus, "pinned-sessions-running").length));
 check("a finished-but-unopened session gets the unread dot", collect(withStatus, "pinned-sessions-unread").length === 1, String(collect(withStatus, "pinned-sessions-unread").length));
-check("the unread dot is styled apart from the running one", collectByClass(withStatus, "dshps_dotUnread").length === 1);
-const noHook = renderSection({ ...baseProps, useSessionStatus: undefined, sessionsStore: store({ ...sessionsA, byId: { ...sessionsA.byId, s1: { ...sessionsA.byId.s1, completionUnread: true } } }) });
-check("without the hook only the summary flag can light a dot", collect(noHook, "pinned-sessions-unread").length === 0, String(collect(noHook, "pinned-sessions-unread").length));
+check("the unread dot uses the native done state", collect(collect(withStatus, "pinned-sessions-unread")[0], "fake-state-dot")[0]?.props["data-state"] === "done");
+const pending = renderSection({ ...baseProps, statusStore: store(new Map([["s2", { running: true, pendingInteraction: { kind: "approval" }, completionUnread: false }]])) });
+check("a pending approval outranks live activity", collect(pending, "pinned-sessions-warning").length === 1 && collect(pending, "pinned-sessions-running").length === 0, `${collect(pending, "pinned-sessions-warning").length}/${collect(pending, "pinned-sessions-running").length}`);
+check("the warning dot uses the native warning state", collect(collect(pending, "pinned-sessions-warning")[0], "fake-state-dot")[0]?.props["data-state"] === "warning");
+check("a warning's compact label replaces the timestamp", textOf(pending).includes("待审批"), textOf(pending).slice(0, 120));
+const summaryOnly = renderSection({ ...baseProps, statusStore: undefined });
+check("without a status store the summary flag still lights the spinner", collect(summaryOnly, "pinned-sessions-running").length === 1, String(collect(summaryOnly, "pinned-sessions-running").length));
 
 //#region settings row
 const settingsTree = renderComponent("PinnedSettingsRow", { t });
