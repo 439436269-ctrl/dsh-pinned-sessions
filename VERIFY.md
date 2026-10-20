@@ -408,3 +408,22 @@ tooltip 完整性）。
 
 **顺带**：两个 README 的「状态点取自 hook」改为「取自 `uiSession.sessionStatus`」，
 补上告警态与紧凑标签的说明；版本升到 0.4.1。
+
+## 14. 0.4.1 发布（2026-10-20）
+
+| 项 | 值 |
+| --- | --- |
+| 版本 | `@vfvrpq/dsh-pinned-sessions@0.4.1`（`dist-tags.latest`，promote 于 2026-10-20T15:18:31Z） |
+| dist.shasum / sha1 | `ec5a3ca8683ae3c6ae854d45b2d185929a169c60` |
+| fileCount / unpackedSize | 8 / 65269 |
+| 回读校验 | `verify_npm_artifact.py`：下载产物 sha1 == `dist.shasum`、integrity(sha512) 通过、**本地 tgz 与 registry 产物逐字节一致**、逐文件 7 一致 / 1 差异（`package.json`，npm 重写键序，语义 diff 为空） |
+| 发布方式 | `~/.secrets/keys.env` 的 `NPM_AUTOMATION_TOKEN` → 临时 npmrc（发完即删）→ `pnpm whoami` 确认 `vfvrpq` → `pnpm publish --no-git-checks`；staged 约 4 分钟后 promote |
+
+**仓库侧（github.com 仍全 IP 超时，走 Git Data API）**：12 个文件 → blob → tree（校验等于本地 `06134d4`）
+→ commit `2934e3b` → 更新 `refs/heads/main` → 轻量 tag `refs/tags/v0.4.1`。
+API 回读 `contents/lib/client.js` 确认 `"uiSession"`、`statusStore: uiSession.sessionStatus`、
+`PACKAGE_VERSION = "0.4.1"` 都在。本地提交 `04b04ad`（tree 相同、SHA 不同，对齐方式同 §9）。
+
+**本机 profile**：依赖与 lockfile 都钉到 `0.4.1`（pnpm 的 24h 观察期对显式版本自动放行，
+`pnpm-workspace.yaml` 的 `minimumReleaseAgeExclude` 多了一行，与既有条目同格式）。
+桌面端窗口需刷新/重开才会载入新 bundle（宿主进程里仍是旧模块）。
