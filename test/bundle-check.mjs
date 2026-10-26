@@ -152,7 +152,7 @@ check("the settings row uses the same dictionary", settingsEntry?.options.locale
 check("zh and en dictionaries share one key set", JSON.stringify(Object.keys(dictionary.dicts.zh).sort()) === JSON.stringify(Object.keys(dictionary.dicts.en).sort()));
 const injected = typeof section.options.inject === "function" ? section.options.inject() : undefined;
 check("inject face exposes the stores and both mutations", injected !== undefined && typeof injected.openSession === "function" && typeof injected.unpinSession === "function" && typeof injected.sessionsStore?.getSnapshot === "function" && typeof injected.workspacesStore?.getSnapshot === "function" && typeof injected.statusStore?.getSnapshot === "function", Object.keys(injected ?? {}).join(","));
-check("anchor selector targets the workspace outlet", booted.exported.__test__?.ANCHOR_SELECTOR === 'div[data-slot="sidebar.workspaces"]', booted.exported.__test__?.ANCHOR_SELECTOR);
+check("anchor selector targets the workspace outlet without pinning an element type", booted.exported.__test__?.ANCHOR_SELECTOR === '[data-slot="sidebar.workspaces"]', booted.exported.__test__?.ANCHOR_SELECTOR);
 //#endregion
 
 //#region visibility preference
