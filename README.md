@@ -22,7 +22,7 @@ This plugin gives the pinned set its own group, above the Workspace browser:
 插件
 自动化任务
 工作区                        ← the native section header
-置顶  1  dsh-pinned-sessions v0.5.0  🔍   ← this plugin, inside the list
+置顶  1  dsh-pinned-sessions v0.6.0  🔍   ← this plugin, inside the list
    插件笔记：dsh-cost-…   默认工作区   4 小时前
 默认工作区
    新会话
@@ -32,7 +32,7 @@ This plugin gives the pinned set its own group, above the Workspace browser:
 With the search open (the count becomes `matched/total`):
 
 ```
-置顶  1/3  dsh-pinned-sessions v0.5.0  ✕
+置顶  1/3  dsh-pinned-sessions v0.6.0  ✕
    [ 搜索置顶会话              ]
    插件笔记：dsh-cost-…   4 小时前
 ```
@@ -58,7 +58,15 @@ With the search open (the count becomes `matched/total`):
   count;
 - **Settings → 通用** has a 「置顶会话区」 switch, so the group can be turned off
   without editing anything;
-- the header carries the plugin's **npm identity** — `dsh-pinned-sessions v0.5.0` —
+- the row carries the **native filled pin marker** (「已置顶」, 16×20, caption
+  color) and swaps it for the **native pair of hover actions** — 归档会话 then
+  取消置顶, in `sidebar.workspaces.session.row.action`'s own order (archive 100,
+  pin 200) and its 15px gap, calling the same `workspaces` methods the native
+  buttons call;
+- the time span prints the **native bare unit** (`23分钟` / `2天`, never `2 天前`);
+  the full "ago" form stays in the row tooltip, and the open Session's row is
+  highlighted by the native `retainedBy.mainView` rule;
+- the header carries the plugin's **npm identity** — `dsh-pinned-sessions v0.6.0` —
   as a muted chip that links to
   [`@vfvrpq/dsh-pinned-sessions`](https://www.npmjs.com/package/@vfvrpq/dsh-pinned-sessions)
   on npm (`target="_blank"`; the desktop shell turns that into `shell.openExternal`,

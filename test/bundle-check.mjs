@@ -285,14 +285,21 @@ const t = (key, params) => {
 const store = (snapshot) => ({ getSnapshot: () => snapshot, subscribe: () => () => {} });
 const opened = [];
 const unpinned = [];
+const pinnedCalls = [];
+const archivedCalls = [];
 const baseProps = {
 	sessionsStore: store(sessionsA),
 	workspacesStore: store(workspacesA),
 	statusStore: store(new Map()),
 	openSession: (id) => opened.push(id),
+	pinSession: (id) => pinnedCalls.push(id),
 	unpinSession: (id) => unpinned.push(id),
+	archiveSession: (id) => archivedCalls.push(id),
 	t
 };
+
+/** Name of the icon inside a one-glyph span, e.g. the pin marker or the clock mark. */
+const iconName = (node) => React.Children.toArray(node?.props?.children)[0]?.props?.["data-icon"];
 
 const tree = renderSection(baseProps);
 check("section declares its testid", tree.props["data-testid"] === "pinned-sessions-section");
@@ -314,10 +321,23 @@ const rows = collect(tree, "pinned-sessions-row");
 check("every visible pinned session gets a row", rows.length === 3, String(rows.length));
 check("rows keep the pin order", JSON.stringify(rows.map((row) => row.props["data-session-id"])) === JSON.stringify(["s2", "s1", "s4"]), rows.map((row) => row.props["data-session-id"]).join(","));
 check("rows are native-shaped treeitems", rows.every((row) => row.type === "li" && row.props.role === "treeitem" && row.props.tabIndex === 0));
-check("pinned rows expose an unpin toggle", collect(tree, "pinned-sessions-unpin").length === 3, String(collect(tree, "pinned-sessions-unpin").length));
+/* Native `sidebar.workspaces.session.row.action`: archive (order 100) then pin (200). */
+check("pinned rows expose the native hover actions", collect(tree, "pinned-sessions-archive").length === 3 && collect(tree, "pinned-sessions-pin").length === 3, `${collect(tree, "pinned-sessions-archive").length}/${collect(tree, "pinned-sessions-pin").length}`);
+check("the hover actions keep the native order", (() => {
+	const actions = collectByClass(rows[0], "dshps_actions")[0];
+	const ids = React.Children.toArray(actions?.props?.children).map((node) => node.props?.["data-testid"]);
+	return JSON.stringify(ids) === JSON.stringify(["pinned-sessions-archive", "pinned-sessions-pin"]);
+})(), JSON.stringify(React.Children.toArray(collectByClass(rows[0], "dshps_actions")[0]?.props?.children).map((node) => node.props?.["data-testid"])));
+check("the archive action names the native verb", collect(rows[0], "pinned-sessions-archive")[0]?.props["aria-label"] === "归档会话", String(collect(rows[0], "pinned-sessions-archive")[0]?.props["aria-label"]));
+check("a pinned row's pin action reads unpin", collect(rows[0], "pinned-sessions-pin")[0]?.props["aria-label"] === "取消置顶", String(collect(rows[0], "pinned-sessions-pin")[0]?.props["aria-label"]));
+check("every row carries the rest-state pin marker", collect(tree, "pinned-sessions-pin-indicator").length === 3 && collectByClass(rows[0], "dshps_pinIndicator").length === 1, `${collect(tree, "pinned-sessions-pin-indicator").length}`);
+check("the pin marker is the filled native glyph", iconName(collect(rows[0], "pinned-sessions-pin-indicator")[0]) === "IconPinFillRegular", String(iconName(collect(rows[0], "pinned-sessions-pin-indicator")[0])));
+check("the pin marker is announced", collect(rows[0], "pinned-sessions-pin-indicator")[0]?.props.role === "img" && collect(rows[0], "pinned-sessions-pin-indicator")[0]?.props["aria-label"] === "已置顶");
 check("running sessions carry the native spinner", collect(tree, "pinned-sessions-running").length === 1, String(collect(tree, "pinned-sessions-running").length));
 check("the running state is the native ongoing dot", collect(rows[0], "fake-state-dot")[0]?.props["data-state"] === "ongoing", JSON.stringify(collect(rows[0], "fake-state-dot")[0]?.props));
-check("each row shows a relative time", textOf(tree).includes("小时前") && textOf(tree).includes("分钟前"), textOf(tree).slice(0, 120));
+/* Row time spans print the native bare unit ("1小时"), not "1 小时前". */
+check("each row shows a compact relative time", textOf(tree).includes("1小时") && textOf(tree).includes("2分钟"), textOf(tree).slice(0, 140));
+check("the row tooltip keeps the native ago form", String(rows[0]?.props.title).includes("1小时前"), String(rows[0]?.props.title));
 check("rows carry the owning workspace label", collect(tree, "pinned-sessions-where").map((node) => textOf(node)).join(",") === "默认工作区,默认工作区,另一个工作区", collect(tree, "pinned-sessions-where").map((node) => textOf(node)).join(","));
 
 /** A status map source, exactly the shape `uiSession.sessionStatus` hands over. */
@@ -351,9 +371,25 @@ check("and can be switched back on", liveBundle.exported.__test__.enabledSource.
 //#endregion
 rows[0].props.onClick();
 check("clicking a row opens that session", JSON.stringify(opened) === JSON.stringify(["s2"]), JSON.stringify(opened));
-const unpinButton = collect(rows[0], "pinned-sessions-unpin")[0];
-unpinButton.props.onClick({ stopPropagation: () => {} });
-check("the unpin toggle unpins without opening", JSON.stringify(unpinned) === JSON.stringify(["s2"]) && opened.length === 1, JSON.stringify(unpinned));
+const pinButton = collect(rows[0], "pinned-sessions-pin")[0];
+pinButton.props.onClick({ stopPropagation: () => {} });
+check("a pinned row's pin action unpins without opening", JSON.stringify(unpinned) === JSON.stringify(["s2"]) && opened.length === 1, JSON.stringify(unpinned));
+check("the pin action is the native filled pin when pinned", iconName(pinButton) === "IconPinFillRegular", String(iconName(pinButton)));
+const archiveButton = collect(rows[0], "pinned-sessions-archive")[0];
+archiveButton.props.onClick({ stopPropagation: () => {} });
+check("the archive action archives without opening", JSON.stringify(archivedCalls) === JSON.stringify(["s2"]) && opened.length === 1, JSON.stringify(archivedCalls));
+/*
+ * The highlight rule is the native browser's: a row is selected when its Session
+ * is the one the main view retains.
+ */
+const selectedTree = renderSection({
+	...baseProps,
+	sessionsStore: store({ ...sessionsA, byId: { ...sessionsA.byId, s1: { ...sessionsA.byId.s1, retainedBy: { mainView: 1 } } } })
+});
+const selectedRow = collect(selectedTree, "pinned-sessions-row").find((row) => row.props["data-session-id"] === "s1");
+check("the open session's row is highlighted like the native row", selectedRow?.props.className.split(" ").includes("dshps_rowSelected") && selectedRow?.props["aria-selected"] === "true", String(selectedRow?.props.className));
+check("only the open session's row is highlighted", collect(selectedTree, "pinned-sessions-row").filter((row) => row.props["aria-selected"] === "true").length === 1);
+check("a row without a retained main view is not highlighted", String(rows[0].props["aria-selected"]) === "false", String(rows[0].props["aria-selected"]));
 
 const collapsed = renderSection(baseProps, [true]);
 check("a collapsed section hides its rows", collect(collapsed, "pinned-sessions-row").length === 0 && collect(collapsed, "pinned-sessions-list").length === 0);
@@ -381,16 +417,15 @@ check("english copy renders from the same keys", textOf(enTree).includes("Pinned
 //#endregion
 
 //#region outline glyph + in-group search
-const iconName = (node) => React.Children.toArray(node?.props?.children)[0]?.props?.["data-icon"];
 const glyph = collectByClass(tree, "dshps_glyph")[0];
 check("the group glyph is the outline pin, matching the sidebar's other entries", iconName(glyph) === "IconPinOutlineRegular", String(iconName(glyph)));
 /*
- * Rows do not repeat a pin marker: every row in this group is pinned, so the
- * marker would be noise and it costs title width in a 256px sidebar. The marker
- * stays on the header (navigation); a native list row keeps its own (state).
+ * Rows DO repeat a filled pin marker, exactly like a native pinned row: the
+ * rest-state marker sits where the native `.pinIndicator` sits and hides under
+ * the hover actions, so a pinned row in this group reads like a pinned row below.
  */
-check("rows do not repeat the pin marker", collectByClass(rows[0], "dshps_pin").length === 0);
-check("the row tooltip carries the title, the workspace and the time", String(rows[0]?.props.title).includes("默认工作区") && String(rows[0]?.props.title).includes("小时前"), String(rows[0]?.props.title));
+check("every row repeats the native pin marker", collectByClass(rows[0], "dshps_pinIndicator").length === 1);
+check("the row tooltip carries the title, the workspace, the time and the pin state", String(rows[0]?.props.title).includes("默认工作区") && String(rows[0]?.props.title).includes("小时前") && String(rows[0]?.props.title).includes("已置顶"), String(rows[0]?.props.title));
 
 /*
  * Native convention, from @deepseek-ai/dsh-client-ui-workspace's Rows.module.css:

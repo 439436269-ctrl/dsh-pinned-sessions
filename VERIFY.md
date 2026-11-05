@@ -490,3 +490,35 @@ API 回读 `contents/lib/client.js` 确认 `"uiSession"`、`statusStore: uiSessi
 - 临时 profile 首次打开会弹「预览版说明」模态框，按钮文案是「继续」；本机 0.2.1-rc.3
   的 web 模板已含 `ui-schedule`，而 npm 上 `dsh@0.2.0-rc.2` 的模板**没有**，
   所以实机验证必须用 app 自带 CLI（`resources/runtime/cli/bin/dsh.cmd`）起 profile。
+
+## 16. 0.6.0 —— 行内装饰与原生行逐项对齐（2026-11-05）
+
+用户接着说「以及其他有各种的，也对齐下下面的」，指置顶行除了时钟、还缺原生行那些标记。
+把原生 `SessionNodeItem` 逐元素过了一遍，缺口是四处：
+
+| 原生行有 | 0.5.0 的置顶行 | 本轮 |
+| --- | --- | --- |
+| 右侧常驻实心图钉 `.pinIndicator`（16×20、caption 色、`margin-left:6px`、hover 隐藏） | 无 | 加，同一个入口图标 `IconPinFillRegular` 14 |
+| hover 显示 `已归档 + 置顶` 两个图标按钮（order 100/200、`gap:15px`） | 只有一个「取消置顶」 | 换成两个，顺序/间距/方法都对齐 |
+| 时间只印裸单位（`23分钟`/`2天`） | `2 天前` | 改裸单位；「前」留给 tooltip |
+| 当前会话行高亮（`retainedBy.mainView`） | 无 | 加，`aria-selected` 同步 |
+
+**为什么不照抄菜单/hover 卡片**：原生行 hover 时还有一枚 `⋯` 菜单，其菜单项来自
+`sidebar.workspaces.session.menu.item`，hover 卡片内容来自 `sidebar.session.row.hover` ——
+两个席位都归 ui-workspace 的条目，插件既不能 `renderSlot`（未声明）也不能重复声明（见 §15）。
+所以这一轮只对齐**不经过别家席位**的那部分；菜单与悬浮卡片仍是原生行独有。
+
+**验证（同一个临时 profile + CDP 驱动 headless Edge，0.2.1-rc.3）**：
+
+1. 静止态 6 行：每行 `time` 文本与原生行**逐字相同**（`2天` = `2天`、`22分钟` = `22分钟`）；
+   `data-testid="pinned-sessions-pin-indicator"` 全部存在且 `display` 非 none，
+   `aria-label="已置顶"`；`dshps_actions` 静止时 `display:none`。
+2. 真实鼠标移入第一行（`Input.dispatchMouseEvent`）：时间与图钉同时 `display:none`、
+   动作组 `display:inline-flex`，两个按钮 `pinned-sessions-archive` →
+   `pinned-sessions-pin`（原生同一行的 `rowActions` 是 `归档会话` → `取消置顶`，一致）。
+3. 点开第一行后：置顶组里被选中的行 = 原生列表里被选中的行 = `session-7ace4bbf…`，
+   `aria-selected="true"` 各 1 行。
+4. 截图（`_pv_sidebar3.png`，临时产物）目视：置顶 6 行的时钟/时间/图钉与下方同会话原生行对得上；
+   hover 行换成了「归档 + 实心图钉」两个按钮。
+5. `node test/bundle-check.mjs`：134 条断言全过（新增图钉字形与 ARIA、动作顺序、归档/取消置顶
+   两个回调、裸单位时间、tooltip 的「前」形态、选中行规则）。

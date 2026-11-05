@@ -3,6 +3,28 @@
 All notable changes to this plugin. Dates are the local (Asia/Shanghai) day the
 change was verified on DSH Desktop 0.2.0-rc.2.
 
+## 0.6.0 — 2026-11-05
+
+The pinned rows carried fewer decorations than the native rows for the very same
+Sessions: no pin marker, a single hover button, a long time label, and no
+highlight on the open Session. Each one is now the native row's own element.
+
+- **The rest-state pin marker** (`已置顶`) sits where the native `.pinIndicator`
+  sits — 16×20, caption color, 6px leading gap — and hides under the hover
+  actions, exactly like the native row.
+- **Hover actions follow the native order and gap**: 归档会话 then 置顶/取消置顶,
+  in a 15px-gap cluster (`sidebar.workspaces.session.row.action` is archive at
+  order 100, pin at 200). Both call the same `workspaces` methods the native
+  buttons call, so one action has one implementation.
+- **The time span prints the native bare unit** (`23分钟`/`2天`, never `2 天前`);
+  the row tooltip keeps the hover card's "ago" form. The bucket vocabulary is the
+  native sidebar's, verbatim.
+- **The open Session's row is highlighted** by the native rule
+  (`retainedBy.mainView`), with `aria-selected` set the way the native row sets it.
+- The self-check grew to 134 assertions: marker glyph/label, hover-action order and
+  ARIA, per-action behaviour (archive, unpin), the compact labels, the ago-form
+  tooltip, and the selected-row rule.
+
 ## 0.5.0 — 2026-11-04
 
 A pinned session that owns active scheduled tasks looked idle in the pinned group
