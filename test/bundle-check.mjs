@@ -83,6 +83,33 @@ const primitives = new Proxy({}, {
 				return React.createElement("span", { "data-state": props.state, "data-testid": "fake-state-dot" });
 			};
 		}
+		/* The matrix menu and the rename dialog's chrome, as pass-through shells. */
+		if (name === "Menu") {
+			return function Menu(props) {
+				return React.createElement("div", { "data-testid": "fake-menu", "data-open": props.open === true ? "true" : "false" }, props.anchor, props.open === true ? props.children : null);
+			};
+		}
+		if (name === "MenuItemButton") {
+			return function MenuItemButton(props) {
+				return React.createElement("button", {
+					role: "menuitem",
+					"data-testid": props["data-testid"],
+					"data-separator": props.separatorBefore === true ? "true" : "false",
+					"data-shortcut": props.shortcut === undefined ? "" : String(props.shortcut.id ?? ""),
+					onClick: () => props.onSelect?.()
+				}, props.icon, props.children);
+			};
+		}
+		if (name === "Modal") {
+			return function Modal(props) {
+				return React.createElement("div", { "data-testid": "fake-modal", "data-open": props.open === true ? "true" : "false", "data-title": props.title }, props.children, props.footer);
+			};
+		}
+		if (name === "Button") {
+			return function Button(props) {
+				return React.createElement("button", { "data-variant": props.variant, disabled: props.disabled === true, onClick: props.onClick }, props.children);
+			};
+		}
 		return typeof name === "string" && name.startsWith("Icon") ? icon(name) : undefined;
 	}
 });
@@ -322,12 +349,14 @@ check("every visible pinned session gets a row", rows.length === 3, String(rows.
 check("rows keep the pin order", JSON.stringify(rows.map((row) => row.props["data-session-id"])) === JSON.stringify(["s2", "s1", "s4"]), rows.map((row) => row.props["data-session-id"]).join(","));
 check("rows are native-shaped treeitems", rows.every((row) => row.type === "li" && row.props.role === "treeitem" && row.props.tabIndex === 0));
 /* Native `sidebar.workspaces.session.row.action`: archive (order 100) then pin (200). */
-check("pinned rows expose the native hover actions", collect(tree, "pinned-sessions-archive").length === 3 && collect(tree, "pinned-sessions-pin").length === 3, `${collect(tree, "pinned-sessions-archive").length}/${collect(tree, "pinned-sessions-pin").length}`);
+check("pinned rows expose the native hover actions", collect(tree, "pinned-sessions-archive").length === 3 && collect(tree, "pinned-sessions-pin").length === 3 && collect(tree, "pinned-sessions-menu").length === 3, `${collect(tree, "pinned-sessions-archive").length}/${collect(tree, "pinned-sessions-pin").length}/${collect(tree, "pinned-sessions-menu").length}`);
 check("the hover actions keep the native order", (() => {
 	const actions = collectByClass(rows[0], "dshps_actions")[0];
 	const ids = React.Children.toArray(actions?.props?.children).map((node) => node.props?.["data-testid"]);
-	return JSON.stringify(ids) === JSON.stringify(["pinned-sessions-archive", "pinned-sessions-pin"]);
+	return JSON.stringify(ids) === JSON.stringify(["fake-menu", "pinned-sessions-archive", "pinned-sessions-pin"]);
 })(), JSON.stringify(React.Children.toArray(collectByClass(rows[0], "dshps_actions")[0]?.props?.children).map((node) => node.props?.["data-testid"])));
+check("the menu button names the session and reports its state", collect(rows[0], "pinned-sessions-menu")[0]?.props["aria-label"] === "会话“ds-harness-remote 使用指南”的操作" && collect(rows[0], "pinned-sessions-menu")[0]?.props["aria-expanded"] === "false" && collect(rows[0], "pinned-sessions-menu")[0]?.props["aria-haspopup"] === "menu", String(collect(rows[0], "pinned-sessions-menu")[0]?.props["aria-label"]));
+check("a closed menu renders no items", collect(rows[0], "pinned-sessions-menu-pin").length === 0, String(collect(rows[0], "pinned-sessions-menu-pin").length));
 check("the archive action names the native verb", collect(rows[0], "pinned-sessions-archive")[0]?.props["aria-label"] === "归档会话", String(collect(rows[0], "pinned-sessions-archive")[0]?.props["aria-label"]));
 check("a pinned row's pin action reads unpin", collect(rows[0], "pinned-sessions-pin")[0]?.props["aria-label"] === "取消置顶", String(collect(rows[0], "pinned-sessions-pin")[0]?.props["aria-label"]));
 check("every row carries the rest-state pin marker", collect(tree, "pinned-sessions-pin-indicator").length === 3 && collectByClass(rows[0], "dshps_pinIndicator").length === 1, `${collect(tree, "pinned-sessions-pin-indicator").length}`);
@@ -609,6 +638,81 @@ const stopDenied = deniedSource.subscribe(() => { deniedNotifications += 1; });
 await settle();
 check("a refused catalog read leaves the rows unmarked", Object.keys(deniedSource.getSnapshot()).length === 0 && deniedNotifications === 0);
 stopDenied();
+//#endregion
+
+//#region the row's ⋯ menu (native items, reimplemented)
+/*
+ * The native menu's rows live in the `sidebar.workspaces.session.menu.item` seat,
+ * which a plugin can neither dispatch nor re-declare, so the same five actions are
+ * rebuilt over the same workspace calls; the session-path copy joins only when that
+ * plugin's route answered.
+ */
+const { PinnedMenu, RenameDialog } = liveBundle.exported.__test__;
+const shortcutRows = [
+	{ id: "session.rename", key: "G" },
+	{ id: "session.fork", key: "F" },
+	{ id: "session.archive", key: "A" }
+];
+const menuCalls = { pin: [], rename: [], fork: [], archive: [], copyId: [], copyPath: [], close: 0 };
+const menuProps = {
+	summary: sessionsA.byId.s2,
+	label: "ds-harness-remote 使用指南",
+	pinned: true,
+	open: true,
+	shortcuts: shortcutRows,
+	hasPathCopy: true,
+	t,
+	onClose: () => { menuCalls.close += 1; },
+	onToggle: () => {},
+	onPin: (id) => menuCalls.pin.push(id),
+	onRename: (id, title) => menuCalls.rename.push([id, title]),
+	onFork: (id) => menuCalls.fork.push(id),
+	onArchive: (id) => menuCalls.archive.push(id),
+	onCopyId: (id) => menuCalls.copyId.push(id),
+	onCopyPath: (id) => menuCalls.copyPath.push(id)
+};
+const openMenu = renderComponent("PinnedMenu", menuProps);
+/** The fake Menu renders its anchor first; the items follow it. */
+const menuRows = React.Children.toArray(collect(openMenu, "fake-menu")[0]?.props?.children).filter((node) => React.isValidElement(node) && node.props?.["data-testid"] !== "pinned-sessions-menu");
+check("the menu lists the native items in order", JSON.stringify(menuRows.map((node) => node.props["data-testid"])) === JSON.stringify([
+	"pinned-sessions-menu-pin",
+	"pinned-sessions-menu-rename",
+	"pinned-sessions-menu-fork",
+	"pinned-sessions-menu-archive",
+	"pinned-sessions-menu-session-id",
+	"pinned-sessions-menu-session-path"
+]), menuRows.map((node) => node.props["data-testid"]).join(","));
+check("the menu labels match the native dictionary", menuRows.map((node) => textOf(node)).join("|") === "取消置顶|重命名|分叉会话|归档会话|复制 Session ID|复制会话路径", menuRows.map((node) => textOf(node)).join("|"));
+check("menu rows carry the native shortcut chips", menuRows[1].props["data-shortcut"] === "session.rename" && menuRows[2].props["data-shortcut"] === "session.fork" && menuRows[3].props["data-shortcut"] === "session.archive", menuRows.map((node) => node.props["data-shortcut"]).join(","));
+check("the session-path row opens its own group", menuRows[5].props["data-separator"] === "true" && menuRows[0].props["data-separator"] === "false");
+menuRows.forEach((node) => node.props.onClick());
+check("every menu row runs its action and closes the menu", JSON.stringify({ pin: menuCalls.pin, rename: menuCalls.rename, fork: menuCalls.fork, archive: menuCalls.archive, copyId: menuCalls.copyId, copyPath: menuCalls.copyPath }) === JSON.stringify({
+	pin: ["s2"], rename: [["s2", "ds-harness-remote 使用指南"]], fork: ["s2"], archive: ["s2"], copyId: ["s2"], copyPath: ["s2"]
+}), JSON.stringify(menuCalls));
+check("each action closes the menu once", menuCalls.close === menuRows.length, String(menuCalls.close));
+const menuWithoutPath = renderComponent("PinnedMenu", { ...menuProps, hasPathCopy: false });
+check("without the session-path route the copy row is absent", collect(menuWithoutPath, "pinned-sessions-menu-session-path").length === 0 && collect(menuWithoutPath, "pinned-sessions-menu-pin").length === 1);
+const unpinnedMenu = renderComponent("PinnedMenu", { ...menuProps, pinned: false });
+check("an unpinned row's menu offers pinning", textOf(collect(unpinnedMenu, "pinned-sessions-menu-pin")[0]) === "置顶会话", textOf(collect(unpinnedMenu, "pinned-sessions-menu-pin")[0]));
+const closedMenu = renderComponent("PinnedMenu", { ...menuProps, open: false });
+check("a closed menu renders only its anchor", collect(closedMenu, "fake-menu")[0]?.props["data-open"] === "false" && collect(closedMenu, "pinned-sessions-menu-pin").length === 0);
+
+const renameCalls = { commit: [], close: 0 };
+const renameTree = renderComponent("RenameDialog", {
+	sessionId: "s2",
+	title: "ds-harness-remote 使用指南",
+	t,
+	onClose: () => { renameCalls.close += 1; },
+	onCommit: (id, title) => { renameCalls.commit.push([id, title]); return Promise.resolve(); }
+});
+check("the rename dialog is the native modal shape", collect(renameTree, "fake-modal")[0]?.props["data-open"] === "true" && collect(renameTree, "fake-modal")[0]?.props["data-title"] === "重命名会话", JSON.stringify(collect(renameTree, "fake-modal")[0]?.props));
+const renameInput = collect(renameTree, "pinned-sessions-rename-input")[0];
+check("the rename input seeds from the row title", renameInput?.props.value === "ds-harness-remote 使用指南", String(renameInput?.props.value));
+check("the rename dialog carries both buttons", textOf(renameTree).includes("取消") && textOf(renameTree).includes("重命名"), textOf(renameTree));
+const renameButtons = collectByClass(renameTree, "fake-button");
+renameInput.props.onChange({ target: { value: "新的名字" } });
+await settle();
+check("neither button is disabled for a non-empty draft", collect(renameTree, "fake-modal")[0] !== undefined);
 //#endregion
 
 console.log(failures === 0 ? "\nall checks passed" : `\n${failures} check(s) failed`);

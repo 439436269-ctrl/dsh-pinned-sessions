@@ -3,6 +3,27 @@
 All notable changes to this plugin. Dates are the local (Asia/Shanghai) day the
 change was verified on DSH Desktop 0.2.0-rc.2.
 
+## 0.7.0 — 2026-11-06
+
+The pinned rows had no `⋯` menu at all: every session action except pin and archive
+was reachable only from the native list further down.
+
+- **A native-shaped `⋯` menu on every pinned row**, with the native session menu's
+  items in its order and its shortcut chips: 置顶/取消置顶 · 重命名 (`Ctrl+Alt+G`) ·
+  分叉会话 · 归档会话 (`Ctrl+Alt+A`) · 复制 Session ID · 复制会话路径. The ⋯ button
+  sits first in the hover cluster, exactly where the native row puts it.
+- **Rename opens the native modal shape** (`primitives.Modal` + 取消/重命名) seeded
+  with the row title; the native dialog lives in ui-workspace's `shell.overlay` seat,
+  which a plugin cannot raise, so the same shape is rebuilt over `workspaces.rename`.
+- **Copy actions confirm with a short notice** (`会话 ID 已复制` / `会话路径已复制`),
+  and a failure says so instead of silently doing nothing.
+- **The session-path row appears only when `dsh-session-path` answers**: one probe of
+  its `/api/dsh-session-path/resolve` route at mount, then the row copies through the
+  same route. A host without that plugin simply shows five items.
+- The self-check grew to 149 assertions: item order, labels, shortcut chips, the
+  session-path separator and its absence, one action per row, the rename dialog's
+  seed and buttons, and the menu's closed state.
+
 ## 0.6.0 — 2026-11-05
 
 The pinned rows carried fewer decorations than the native rows for the very same

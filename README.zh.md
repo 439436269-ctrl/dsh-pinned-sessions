@@ -20,7 +20,7 @@ DSH 本身已经支持**置顶会话**（悬停会话行点图钉，或右键 �
 插件
 自动化任务
 工作区                        ← 原生区域标题
-置顶  1  dsh-pinned-sessions v0.6.0  🔍   ← 本插件（在列表内部）
+置顶  1  dsh-pinned-sessions v0.7.0  🔍   ← 本插件（在列表内部）
    插件笔记：dsh-cost-…   默认工作区   4 小时前
 默认工作区
    新会话
@@ -30,7 +30,7 @@ DSH 本身已经支持**置顶会话**（悬停会话行点图钉，或右键 �
 打开搜索时（数量变成 `命中/总数`）：
 
 ```
-置顶  1/3  dsh-pinned-sessions v0.6.0  ✕
+置顶  1/3  dsh-pinned-sessions v0.7.0  ✕
    [ 搜索置顶会话              ]
    插件笔记：dsh-cost-…   4 小时前
 ```
@@ -53,7 +53,13 @@ DSH 本身已经支持**置顶会话**（悬停会话行点图钉，或右键 �
   同一套 `workspaces` 方法；
 - 时间跟原生行一样只印**裸单位**（`23分钟` / `2天`），不写「前」；「2天前」这种完整说法留在
   行 tooltip 里；当前打开的会话那一行按原生的 `retainedBy.mainView` 规则高亮；
-- 分组头带这个插件的 **npm 身份**——`dsh-pinned-sessions v0.6.0`，一小段灰字，点它跳到 npm 上的
+- 每行 hover 时还有一枚 **`⋯` 菜单**，把原生会话菜单原样搬了过来：置顶/取消置顶 · 重命名
+  （`Ctrl+Alt+G`）· 分叉会话 · 归档会话（`Ctrl+Alt+A`）· 复制 Session ID · 复制会话路径，
+  图标与快捷键胶囊都用原生 `MenuItemButton`；重命名开的是原生样式的模态框；两个复制动作会
+  用一行短提示确认（「会话 ID 已复制」/「会话路径已复制」），失败也明说。最后那条
+  **只在装了 `dsh-session-path` 时出现**（启动时探一次它的
+  `/api/dsh-session-path/resolve` 路由，探到才挂这一项，点它走同一条路由）；
+- 分组头带这个插件的 **npm 身份**——`dsh-pinned-sessions v0.7.0`，一小段灰字，点它跳到 npm 上的
   [`@vfvrpq/dsh-pinned-sessions`](https://www.npmjs.com/package/@vfvrpq/dsh-pinned-sessions)
   （`target="_blank"`；桌面壳会把它转成 `shell.openExternal`，所以在系统浏览器里打开，而不是
   应用内跳转）。侧栏只有 256px，chip 显示**去掉 scope 的短名**，完整包名放在 tooltip /

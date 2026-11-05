@@ -22,7 +22,7 @@ This plugin gives the pinned set its own group, above the Workspace browser:
 插件
 自动化任务
 工作区                        ← the native section header
-置顶  1  dsh-pinned-sessions v0.6.0  🔍   ← this plugin, inside the list
+置顶  1  dsh-pinned-sessions v0.7.0  🔍   ← this plugin, inside the list
    插件笔记：dsh-cost-…   默认工作区   4 小时前
 默认工作区
    新会话
@@ -32,7 +32,7 @@ This plugin gives the pinned set its own group, above the Workspace browser:
 With the search open (the count becomes `matched/total`):
 
 ```
-置顶  1/3  dsh-pinned-sessions v0.6.0  ✕
+置顶  1/3  dsh-pinned-sessions v0.7.0  ✕
    [ 搜索置顶会话              ]
    插件笔记：dsh-cost-…   4 小时前
 ```
@@ -66,7 +66,13 @@ With the search open (the count becomes `matched/total`):
 - the time span prints the **native bare unit** (`23分钟` / `2天`, never `2 天前`);
   the full "ago" form stays in the row tooltip, and the open Session's row is
   highlighted by the native `retainedBy.mainView` rule;
-- the header carries the plugin's **npm identity** — `dsh-pinned-sessions v0.6.0` —
+- hovering a row also reveals a **`⋯` menu** carrying the native session menu:
+  pin/unpin · rename (`Ctrl+Alt+G`) · fork · archive (`Ctrl+Alt+A`) · copy Session ID ·
+  copy session path, drawn with the native `MenuItemButton` (icons and shortcut
+  chips). Rename opens the native modal shape, both copy actions confirm with a short
+  notice, and the session-path row appears **only when `dsh-session-path` answers its
+  `/api/dsh-session-path/resolve` route** (probed once at mount, then used to copy);
+- the header carries the plugin's **npm identity** — `dsh-pinned-sessions v0.7.0` —
   as a muted chip that links to
   [`@vfvrpq/dsh-pinned-sessions`](https://www.npmjs.com/package/@vfvrpq/dsh-pinned-sessions)
   on npm (`target="_blank"`; the desktop shell turns that into `shell.openExternal`,

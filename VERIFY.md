@@ -522,3 +522,46 @@ API 回读 `contents/lib/client.js` 确认 `"uiSession"`、`statusStore: uiSessi
    hover 行换成了「归档 + 实心图钉」两个按钮。
 5. `node test/bundle-check.mjs`：134 条断言全过（新增图钉字形与 ARIA、动作顺序、归档/取消置顶
    两个回调、裸单位时间、tooltip 的「前」形态、选中行规则）。
+
+## 17. 0.7.0 —— 复刻原生会话的 `⋯` 菜单（2026-11-06）
+
+用户发来原生行菜单的截图：「你看默认会有更多，还可以点开，我希望你复刻下」。原生菜单有 6 项：
+取消置顶 / 重命名 `Ctrl+Alt+G` / 分叉会话 `Ctrl+Shift+F` / 归档会话 `Ctrl+Alt+A` /
+复制 Session ID / 复制会话路径。
+
+**为什么仍是重写而不是复用**：这 6 项来自 `sidebar.workspaces.session.menu.item` 席位
+（5 项由 ui-workspace 注册，最后一项由 `dsh-session-path` 注册）。§15 已经确认过：插件既不能
+`renderSlot` 别家席位（`entry.children` 里没有就抛 `SlotOwnershipError`），也不能重复声明
+（`slot … is already declared`）。而菜单项组件的 `inject` 面里就是 ui-workspace 的闭包
+（`requestSessionRename`、`pinSession`…），运行时替它拼 props 等于绕过整套授权与顺序，不做。
+
+**改法**：
+
+| 项 | 实现 |
+| --- | --- |
+| `⋯` 按钮 | 原生 `IconEllipsisOutlineRegular`，排在 hover 动作组**最前**（原生 `rowActions` 里 Menu 在 `renderSlot(row.action)` 之前） |
+| 菜单容器 | 原生 `primitives.Menu`（`portal` + `closeOnPointerLeave`），锚在 `⋯` 上 |
+| 菜单项 | 原生 `primitives.MenuItemButton`：图标 + 文案 + 快捷键胶囊，所以版式与原生逐像素同源 |
+| 重命名 | 原生形状的 `primitives.Modal`（标题「重命名会话」+ 取消/重命名），input 用行标题做种子；提交走 `workspaces.rename(id, title)`。原生对话框在 ui-workspace 的 `shell.overlay` 席位里，拿不到，所以按同形状自建 |
+| 分叉 | `uiWorkspace.forkSession(id, undefined, { allowMigration: false })`（与原生同一个调用） |
+| 复制 Session ID | 剪贴板 + 一行短提示（「会话 ID 已复制」/失败「复制失败」） |
+| 复制会话路径 | **装上 `dsh-session-path` 时才有**：挂载时用真实 sessionId 探一次 `/api/dsh-session-path/resolve`，`ok: true` 才挂这一项；点击走同一路由取 `value.text`（回退 `logPath`）再写剪贴板。没装该插件就是 5 项，不会出现点了必失败的按钮 |
+
+**验证（临时 profile `pv4` = web 模板 + 两个插件；CDP 驱动 headless Edge）**：
+
+1. 真实鼠标 hover 第一行 → `dshps_actions` `display:flex`；真实点击 `⋯` → `aria-expanded=true`，
+   `[role="menuitem"]` 读到 **6 项**，文本依次为
+   `取消置顶` / `重命名Ctrl+Alt+G` / `分叉会话Ctrl+Shift+F` / `归档会话Ctrl+Alt+A` /
+   `复制 Session ID` / `复制会话路径` —— 与用户截图逐项一致（快捷键胶囊是原生 `MenuItemButton` 渲染的）。
+2. 点「重命名」→ 出现 `pinned-sessions-rename-input`，`value` 就是行标题
+   「寻找更多视频投稿平台」，页面文本含「重命名会话」；点「取消」→ 输入框消失、菜单已关（`role=menuitem` 0 个）。
+3. 点「取消置顶」→ 该行立刻离开置顶分组（6 → 5 行），存储侧同步；随后用**原生行自己的图钉按钮**
+   把它置顶回来（先点「展开其余 9 个会话」让原生行进入 DOM），置顶组恢复 6 行 —— **验证没有留下副作用**。
+4. 截图（`_pv_menu.png`，临时产物）目视：菜单图标/分隔线/快捷键位置与原生截图一致，
+   hover 行是「⋯ / 归档 / 实心图钉」三个按钮。
+5. `node test/bundle-check.mjs`：**149 条**断言全过（新增菜单项顺序、文案、快捷键胶囊、
+   session-path 分隔线与「没探到就不出现」、每项各自回调、重命名对话框的种子与按钮、菜单关闭态）。
+
+**踩到的坑**：`MenuItemButton` 不把自定义 `data-testid` 透传到 DOM（原生组件的 props 白名单），
+实机断言不能按 testid 找菜单项，只能按 `[role="menuitem"]` 的文案定位——单测里断言的是
+React 元素上的 props，不受这个影响。
