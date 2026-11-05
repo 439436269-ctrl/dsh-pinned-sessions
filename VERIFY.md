@@ -427,3 +427,66 @@ API 回读 `contents/lib/client.js` 确认 `"uiSession"`、`statusStore: uiSessi
 **本机 profile**：依赖与 lockfile 都钉到 `0.4.1`（pnpm 的 24h 观察期对显式版本自动放行，
 `pnpm-workspace.yaml` 的 `minimumReleaseAgeExclude` 多了一行，与既有条目同格式）。
 桌面端窗口需刷新/重开才会载入新 bundle（宿主进程里仍是旧模块）。
+
+## 15. 0.5.0 —— 置顶行不显示定时任务时钟（2026-11-04）
+
+**现象**（用户截图指出）：侧栏原生列表里「寻找更多视频投稿平台 / 知乎找问题编故事回答 /
+将编排 skill 转为 agent 模式」三行行首有钟表标记，而**同一批会话在置顶分组里行首是空的**。
+前置版本 0.4.1 只接了「实时状态」，从没接过定时任务标记。
+
+**根因分两层，第二层是真正的拦路虎**：
+
+1. **标记不是画出来的，是别人席位里的**。原生那枚钟由
+   `@deepseek-ai/dsh-client-ui-schedule` 注册在 `sidebar.session.row.leading` 席位，
+   由 ui-workspace 的会话行在「本行主状态为空闲」时渲染。置顶分组是自己画的 DOM，
+   从来不经过原生行，所以那个席位从来没被轮到。
+2. **插件拿不到别人的席位**。两条路都被槽位运行时堵死：
+   - `renderSlot(key)` 只允许调用方**自己声明过的**子席位（`boundRenderSlot` 里
+     `entry.children?.[key]` 查不到就抛 `SlotOwnershipError`）；
+   - 反过来在自己的 register 里 `children: { "sidebar.session.row.leading": … }` 也不行 ——
+     该席位已被 ui-workspace 的条目声明，`register()` 会直接抛
+     `slot "…" is already declared (by an entry in "sidebar.workspaces")`。
+   于是唯一忠实的做法是**读同一份 Host 目录、画同一枚字形**。
+
+**改法**：
+
+| 点 | 改成 |
+| --- | --- |
+| 数据源 | 自己读 `schedule/catalog()`：整组一次读，跟随 `schedule/changed` 与 `connection/reset` 刷新，最后一个订阅者离开时释放（与原生 `SessionScheduleMark` 的投影规则一致：只统计 `status === "active"` 并按 `sessionId` 计数） |
+| 接线方式 | **等待式子 fiber**：`ctx.inject(["remote", "remote.schedule"], (inner) => scheduleMarks.attach(…))`。不写进分组自己的 `inject` |
+| 渲染 | 空闲行在既有 16px 格子里画 `IconClockOutlineRegular`（size 14，颜色沿用 `.dshps_slot` 的 tertiary），`role="img"` + `aria-label`「{n} 个自动化任务」；行 tooltip 追加任务数 |
+| 互斥 | 进行中 / 待审批 / 计划待审 / 待回答 / 跑完未查看 一律用原生 `StateDot` 占格，钟不出现（与原生行同一条优先级） |
+
+**为什么用 `ctx.inject` 而不是把 `remote.schedule` 写进 `inject`**：cordis 对未声明的服务读取
+直接抛 `cannot get property "remote.schedule" without inject`（本轮实机日志抓到原文），
+而这个版本的 cordis **没有 optional inject** —— 写进必需 `inject` 意味着「没有 Schedule 面的
+组合（如 `minimal` preset）整组不再加载」。等待式子 fiber 恰好满足两头：有面就接上，
+没面就永远 pending，分组照常渲染、只是没有钟。
+
+**验证（验到读者能感知的那一层）**：
+
+1. `node test/bundle-check.mjs`：新增一整区断言 —— 钟的字形与所在格子、本地化文案、行 tooltip、
+   计数为 0 不显示、「进行中 / 待审批 / 未查看」三种状态优先、`createScheduleMarks` 的
+   读取 / 只统计活动任务 / 两种失效各触发一次重读 / 退订释放 / 读取失败与被拒保持不标记、
+   **以及「请求 Schedule 面的是等待式子 fiber（deps 恰好 `["remote","remote.schedule"]`）而不是
+   分组自身的 inject」**。全部通过。
+2. 实机（app 自带 0.2.1-rc.3 CLI 起临时 profile `pv2` → 装本目录 → `--no-open --port 0`，
+   用 CDP 驱动 headless Edge 读 DOM）：
+   - 置顶 6 行里 3 行 `data-testid="pinned-sessions-schedule"`、`aria-label`
+     「1 / 2 / 1 个自动化任务」，`slotHtml` 是 14×14 的时钟 `<svg>`；
+   - **同一批会话在原生列表里的行也带 `[data-session-schedule-mark]`，两处一一对上**；
+     其余 3 行两处都空（无活动任务的那几行）；
+   - 截图（`_pv_sidebar.png`，临时产物）目视：置顶分组的三行行首出现钟，位置与原生行同高同列。
+3. 回归：分组自身仍能在**没有** Schedule 面的组合里加载（0.2.0-rc.2 的 web 模板就没有
+   ui-schedule —— 那一版实测分组正常渲染、6 行都在、只是没有钟，没有任何报错）。
+
+**踩到的坑（都值得记）**：
+
+- **宿主进程启动时就把客户端 bundle 读进内存**：改完 `lib/client.js` 只刷新页面不够，
+  必须重启那个 host 进程；否则页面跑的还是旧模块（本轮因此误判过一次「代码没执行」）。
+- **`Object.keys(remote)` 会抛**：cordis 的服务代理在 `ownKeys` 上不做拦截，调试日志里随手
+  `Object.keys()` 直接抛异常，被 `try/catch` 吞掉后表现为「读目录那步根本没发生」。
+  排查时先 log 类型、再 log 属性，别一次展开整个服务对象。
+- 临时 profile 首次打开会弹「预览版说明」模态框，按钮文案是「继续」；本机 0.2.1-rc.3
+  的 web 模板已含 `ui-schedule`，而 npm 上 `dsh@0.2.0-rc.2` 的模板**没有**，
+  所以实机验证必须用 app 自带 CLI（`resources/runtime/cli/bin/dsh.cmd`）起 profile。

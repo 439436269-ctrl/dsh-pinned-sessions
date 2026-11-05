@@ -3,6 +3,31 @@
 All notable changes to this plugin. Dates are the local (Asia/Shanghai) day the
 change was verified on DSH Desktop 0.2.0-rc.2.
 
+## 0.5.0 — 2026-11-04
+
+A pinned session that owns active scheduled tasks looked idle in the pinned group
+while the same row further down the sidebar showed the schedule clock.
+
+- **Idle pinned rows now carry the native scheduled-task clock.** The clock seat in
+  a session row (`sidebar.session.row.leading`, owned by
+  `@deepseek-ai/dsh-client-ui-schedule`) is dispatched by the row's own entry, and
+  the slot runtime refuses a foreign `renderSlot` — declaring the seat a second time
+  throws `slot "…" is already declared`. So the group reads the same Host catalog
+  (`schedule/catalog()`) and draws the same `IconClockOutlineRegular` in the same
+  16px cell: one Remote read for the whole group, refreshed on `schedule/changed`
+  and `connection/reset`, released when the last row unmounts.
+- **The leading cell stays exclusive, exactly like the native row**: a pending
+  interaction, a live run, or an unread completion keeps its `StateDot` and the
+  clock never renders beside it. Only the count you can see decides the mark — an
+  inactive-only Session shows nothing, and the row tooltip gains the task count.
+- **Absent Schedule face means no clock, not a broken group**: the Remote face is
+  read lazily instead of being declared as a required inject, so a composition
+  without `ui-schedule` still loads the group, and a refused or failed catalog read
+  leaves the rows unmarked rather than throwing.
+- The self-check covers the mark itself (glyph, leading cell, localized label,
+  tooltip), the three exclusivity cases, zero/missing counts, and the source's read,
+  refresh, release and failure paths.
+
 ## 0.4.1 — 2026-10-20
 
 The pinned rows could look idle while the very same session was spinning in the

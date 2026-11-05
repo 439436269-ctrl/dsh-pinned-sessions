@@ -102,6 +102,7 @@ function boot(reactFace) {
 		throw new Error(`unexpected require("${name}")`);
 	});
 	const rows = [];
+	const subFibers = [];
 	const warning = console.warn;
 	console.warn = () => {};
 	exported.apply({
@@ -121,6 +122,14 @@ function boot(reactFace) {
 			}
 		},
 		effect: (callback) => callback(),
+		/*
+		 * `ctx.inject(deps, callback)` starts a waiting sub-fiber: it runs only once
+		 * the declared services exist. The fake records it so the suite can assert
+		 * BOTH halves — that the Schedule face is asked for by inject (cordis
+		 * refuses an undeclared service read) and that the group itself never
+		 * declares it (a required inject would block loading without the face).
+		 */
+		inject: (deps, callback) => { subFibers.push({ deps, callback }); return () => {}; },
 		slots: {
 			inject: (_name, callback) => { callback(); },
 			register: (options, component) => { rows.push({ options, component }); return () => {}; }
@@ -128,7 +137,7 @@ function boot(reactFace) {
 	});
 	console.warn = warning;
 	registrations = rows;
-	return { exported, rows };
+	return { exported, rows, subFibers };
 }
 
 const shimmed = { ...React, useState: () => [undefined, () => {}], useCallback: (fn) => fn, useMemo: (fn) => fn(), useEffect: () => {}, useSyncExternalStore: (_subscribe, getSnapshot) => getSnapshot() };
@@ -151,7 +160,18 @@ check("the visibility switch is a settings.general.item row", settingsEntry?.opt
 check("the settings row uses the same dictionary", settingsEntry?.options.locale === "pinnedSessions");
 check("zh and en dictionaries share one key set", JSON.stringify(Object.keys(dictionary.dicts.zh).sort()) === JSON.stringify(Object.keys(dictionary.dicts.en).sort()));
 const injected = typeof section.options.inject === "function" ? section.options.inject() : undefined;
-check("inject face exposes the stores and both mutations", injected !== undefined && typeof injected.openSession === "function" && typeof injected.unpinSession === "function" && typeof injected.sessionsStore?.getSnapshot === "function" && typeof injected.workspacesStore?.getSnapshot === "function" && typeof injected.statusStore?.getSnapshot === "function", Object.keys(injected ?? {}).join(","));
+check("inject face exposes the stores and both mutations", injected !== undefined && typeof injected.openSession === "function" && typeof injected.unpinSession === "function" && typeof injected.sessionsStore?.getSnapshot === "function" && typeof injected.workspacesStore?.getSnapshot === "function" && typeof injected.statusStore?.getSnapshot === "function" && typeof injected.scheduleMarks?.getSnapshot === "function" && typeof injected.scheduleMarks?.subscribe === "function", Object.keys(injected ?? {}).join(","));
+check("the mark source starts with no Session marked", Object.keys(injected.scheduleMarks.getSnapshot()).length === 0);
+/*
+ * The Schedule face is requested by `ctx.inject` (a waiting sub-fiber), never by
+ * the group's own `inject`: cordis throws `cannot get property "remote.schedule"
+ * without inject` for an undeclared read, and a required declaration would keep
+ * the whole group unloaded on a composition without that face.
+ */
+const scheduleFiber = booted.subFibers.find((fiber) => (fiber.deps ?? []).includes("remote.schedule"));
+check("the group waits for the Schedule face in a sub-fiber", scheduleFiber !== undefined, booted.subFibers.map((fiber) => (fiber.deps ?? []).join("+")).join(","));
+check("the sub-fiber declares both halves of the Remote face", JSON.stringify(scheduleFiber?.deps) === JSON.stringify(["remote", "remote.schedule"]), JSON.stringify(scheduleFiber?.deps));
+check("the group itself never requires the Schedule face", !booted.exported.inject.includes("remote") && !booted.exported.inject.includes("remote.schedule"), booted.exported.inject.join(","));
 check("anchor selector targets the workspace outlet", booted.exported.__test__?.ANCHOR_SELECTOR === 'div[data-slot="sidebar.workspaces"]', booted.exported.__test__?.ANCHOR_SELECTOR);
 //#endregion
 
@@ -416,6 +436,144 @@ check("filterRows is exported for direct testing", typeof filterRows === "functi
 check("filterRows is case-insensitive and trims", filterRows([{ title: "DSH 插件笔记" }, { title: "其它" }], "dsh", t).length === 1);
 check("filterRows treats a blank query as a no-op", filterRows([{ title: "A" }, { title: "B" }], "   ", t).length === 2);
 check("filterRows falls back to the untitled label", filterRows([{ title: "" }, { title: "x" }], dictionary.dicts.zh["row.untitled"], t).length === 1);
+//#endregion
+
+//#region scheduled-task mark (native `sidebar.session.row.leading` parity)
+/*
+ * The native sidebar draws a clock in the leading 16px cell of an IDLE row whose
+ * Session owns at least one active scheduled task, and it hands that cell to the
+ * row's own state dot whenever the row has something more urgent to say. A plugin
+ * cannot dispatch that seat itself (the slot runtime rejects a `renderSlot` the
+ * caller did not declare, and a second declaration of an owned seat throws), so
+ * this group reads the same Host catalog and reproduces both halves of the rule.
+ */
+const marksSource = (counts) => store(Object.freeze({ ...counts }));
+const withSchedule = renderSection({ ...baseProps, scheduleMarks: marksSource({ s1: 1 }) });
+const scheduleMarks = collect(withSchedule, "pinned-sessions-schedule");
+check("an idle pinned session with an active task carries the schedule clock", scheduleMarks.length === 1, String(scheduleMarks.length));
+check("only the marked session gets the clock", scheduleMarks[0]?.props["aria-label"] === "1 个自动化任务", String(scheduleMarks[0]?.props["aria-label"]));
+check("the clock sits in the native leading cell", scheduleMarks[0]?.type === "span" && scheduleMarks[0]?.props.className === "dshps_slot", String(scheduleMarks[0]?.props.className));
+check("the clock is the native clock glyph", iconName(scheduleMarks[0]) === "IconClockOutlineRegular", String(iconName(scheduleMarks[0])));
+check("the clock cell is announced as an image", scheduleMarks[0]?.props.role === "img" && String(scheduleMarks[0]?.props.title).includes("自动化任务"), String(scheduleMarks[0]?.props.title));
+const scheduledRows = collect(withSchedule, "pinned-sessions-row");
+check("the row tooltip names the scheduled task count", String(scheduledRows[1]?.props.title).includes("1 个自动化任务"), String(scheduledRows[1]?.props.title));
+check("an unmarked row keeps an empty leading cell", collect(scheduledRows[0], "pinned-sessions-schedule").length === 0 && collectByClass(scheduledRows[0], "dshps_slot").length === 1);
+check("a row without an active task shows no clock", collect(renderSection(baseProps), "pinned-sessions-schedule").length === 0);
+check("a count of zero is not a mark", collect(renderSection({ ...baseProps, scheduleMarks: marksSource({ s1: 0 }) }), "pinned-sessions-schedule").length === 0);
+
+const multiCount = renderSection({ ...baseProps, scheduleMarks: marksSource({ s1: 3 }) });
+check("the clock reports every active task", collect(multiCount, "pinned-sessions-schedule")[0]?.props["aria-label"] === "3 个自动化任务", String(collect(multiCount, "pinned-sessions-schedule")[0]?.props["aria-label"]));
+
+const runningMarked = renderSection({ ...baseProps, statusStore: store(new Map([["s1", { running: true, completionUnread: false }]])), scheduleMarks: marksSource({ s1: 1 }) });
+const markedRunningRow = collect(runningMarked, "pinned-sessions-row").find((row) => row.props["data-session-id"] === "s1");
+check("a running row keeps its spinner instead of the clock", collect(runningMarked, "pinned-sessions-schedule").length === 0 && collect(markedRunningRow, "pinned-sessions-running").length === 1, `${collect(runningMarked, "pinned-sessions-schedule").length}/${collect(markedRunningRow, "pinned-sessions-running").length}`);
+const pendingMarked = renderSection({ ...baseProps, statusStore: store(new Map([["s1", { running: false, pendingInteraction: { kind: "approval" }, completionUnread: false }]])), scheduleMarks: marksSource({ s1: 1 }) });
+check("a pending interaction outranks the clock", collect(pendingMarked, "pinned-sessions-schedule").length === 0 && collect(pendingMarked, "pinned-sessions-warning").length === 1);
+const unreadMarked = renderSection({ ...baseProps, statusStore: store(new Map([["s1", { running: false, completionUnread: true }]])), scheduleMarks: marksSource({ s1: 1 }) });
+check("an unread completion outranks the clock", collect(unreadMarked, "pinned-sessions-schedule").length === 0 && collect(unreadMarked, "pinned-sessions-unread").length === 1);
+
+const englishMark = renderSection({ ...baseProps, scheduleMarks: marksSource({ s1: 2 }), t: (key, params) => {
+	const template = dictionary.dicts.en[key] ?? key;
+	return params === undefined ? template : template.replace(/\{(\w+)\}/g, (match, name) => (name in params ? String(params[name]) : match));
+} });
+check("the clock label follows the active locale", String(collect(englishMark, "pinned-sessions-schedule")[0]?.props["aria-label"]).includes("scheduled task"), String(collect(englishMark, "pinned-sessions-schedule")[0]?.props["aria-label"]));
+
+const { createScheduleMarks, scheduleCountOf } = booted.exported.__test__;
+check("the mark source factory is exported for direct testing", typeof createScheduleMarks === "function" && typeof scheduleCountOf === "function");
+check("scheduleCountOf tolerates a missing or foreign entry", scheduleCountOf(undefined, "s1") === 0 && scheduleCountOf(Object.freeze({}), "s1") === 0 && scheduleCountOf({ s1: "2" }, "s1") === 0);
+
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+const catalogRows = [
+	{ id: "t1", sessionId: "s1", status: "active" },
+	{ id: "t2", sessionId: "s1", status: "active" },
+	{ id: "t3", sessionId: "s1", status: "inactive" },
+	{ id: "t4", sessionId: "s2", status: "inactive" }
+];
+let catalogReads = 0;
+let changedListener;
+let resetListener;
+/** The face a waiting sub-fiber hands over once `remote.schedule` exists. */
+const face = {
+	list: async () => {
+		catalogReads += 1;
+		return { ok: true, value: catalogRows };
+	},
+	subscribeChanged: (listener) => {
+		changedListener = listener;
+		return () => { changedListener = undefined; };
+	},
+	subscribeReset: (listener) => {
+		resetListener = listener;
+		return () => { resetListener = undefined; };
+	}
+};
+
+/* A host WITHOUT the Schedule face: subscribing must stay quiet, not throw. */
+const facelessSource = createScheduleMarks();
+let facelessNotifications = 0;
+const stopFaceless = facelessSource.subscribe(() => { facelessNotifications += 1; });
+await settle();
+check("without a Schedule face nothing is read and nothing is marked", facelessNotifications === 0 && Object.keys(facelessSource.getSnapshot()).length === 0);
+check("without a Schedule face the source stays subscribed", typeof stopFaceless === "function");
+stopFaceless();
+
+/* A host WITH the face, attached before anything subscribes. */
+const markSource = createScheduleMarks();
+markSource.attach(face);
+check("the mark source starts with nothing marked", Object.keys(markSource.getSnapshot()).length === 0);
+check("attaching alone reads nothing until a row watches", catalogReads === 0, String(catalogReads));
+let markNotifications = 0;
+const stopMarks = markSource.subscribe(() => { markNotifications += 1; });
+check("the first subscriber performs exactly one catalog read", catalogReads === 1, String(catalogReads));
+check("the first subscriber installs both invalidations", typeof changedListener === "function" && typeof resetListener === "function");
+await settle();
+check("only active tasks are counted", scheduleCountOf(markSource.getSnapshot(), "s1") === 2 && scheduleCountOf(markSource.getSnapshot(), "s2") === 0, JSON.stringify(markSource.getSnapshot()));
+check("a settled read notifies its subscribers", markNotifications === 1, String(markNotifications));
+changedListener();
+await settle();
+check("a schedule/changed event re-reads the catalog", catalogReads === 2 && markNotifications === 2, `${catalogReads}/${markNotifications}`);
+resetListener();
+await settle();
+check("a connection reset re-reads the catalog", catalogReads === 3, String(catalogReads));
+stopMarks();
+check("the last unsubscribe releases both invalidations", changedListener === undefined && resetListener === undefined);
+check("the released source drops its snapshot", Object.keys(markSource.getSnapshot()).length === 0);
+
+/* A host WITH the face, attached AFTER a row already mounted: the read starts then. */
+const lateSource = createScheduleMarks();
+let lateNotifications = 0;
+const stopLate = lateSource.subscribe(() => { lateNotifications += 1; });
+await settle();
+check("a row mounted before the face exists reads nothing yet", lateNotifications === 0);
+const detachLate = lateSource.attach(face);
+await settle();
+check("attaching a waiting face starts the read", lateNotifications === 1 && scheduleCountOf(lateSource.getSnapshot(), "s1") === 2, `${lateNotifications}/${JSON.stringify(lateSource.getSnapshot())}`);
+detachLate();
+check("detaching the face drops the snapshot", Object.keys(lateSource.getSnapshot()).length === 0);
+stopLate();
+
+const failingSource = createScheduleMarks();
+failingSource.attach({
+	list: async () => { throw new Error("catalog unavailable"); },
+	subscribeChanged: () => () => {},
+	subscribeReset: () => () => {}
+});
+let failureNotifications = 0;
+const stopFailing = failingSource.subscribe(() => { failureNotifications += 1; });
+await settle();
+check("a rejected catalog read leaves the rows unmarked", Object.keys(failingSource.getSnapshot()).length === 0 && failureNotifications === 0);
+stopFailing();
+const deniedSource = createScheduleMarks();
+deniedSource.attach({
+	list: async () => ({ ok: false, value: { code: "denied" } }),
+	subscribeChanged: () => () => {},
+	subscribeReset: () => () => {}
+});
+let deniedNotifications = 0;
+const stopDenied = deniedSource.subscribe(() => { deniedNotifications += 1; });
+await settle();
+check("a refused catalog read leaves the rows unmarked", Object.keys(deniedSource.getSnapshot()).length === 0 && deniedNotifications === 0);
+stopDenied();
 //#endregion
 
 console.log(failures === 0 ? "\nall checks passed" : `\n${failures} check(s) failed`);

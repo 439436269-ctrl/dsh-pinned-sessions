@@ -22,7 +22,7 @@ This plugin gives the pinned set its own group, above the Workspace browser:
 插件
 自动化任务
 工作区                        ← the native section header
-置顶  1  dsh-pinned-sessions v0.4.1  🔍   ← this plugin, inside the list
+置顶  1  dsh-pinned-sessions v0.5.0  🔍   ← this plugin, inside the list
    插件笔记：dsh-cost-…   默认工作区   4 小时前
 默认工作区
    新会话
@@ -32,7 +32,7 @@ This plugin gives the pinned set its own group, above the Workspace browser:
 With the search open (the count becomes `matched/total`):
 
 ```
-置顶  1/3  dsh-pinned-sessions v0.4.1  ✕
+置顶  1/3  dsh-pinned-sessions v0.5.0  ✕
    [ 搜索置顶会话              ]
    插件笔记：dsh-cost-…   4 小时前
 ```
@@ -50,9 +50,15 @@ With the search open (the count becomes `matched/total`):
   is a green dot, and a pending approval / plan review / question is an amber dot whose
   compact label (「待审批」) replaces the timestamp; title, workspace and time also ride
   the row tooltip;
+- an idle row whose session owns **active scheduled tasks** shows the native **clock
+  mark** in the leading 16px cell — the same `IconClockOutlineRegular` the row further
+  down the sidebar shows. That cell is exclusive: a live run, a pending interaction or
+  an unread completion keeps its status dot and the clock never renders beside it. A
+  task count of 0 (or inactive-only tasks) shows nothing, and the row tooltip gains the
+  count;
 - **Settings → 通用** has a 「置顶会话区」 switch, so the group can be turned off
   without editing anything;
-- the header carries the plugin's **npm identity** — `dsh-pinned-sessions v0.4.1` —
+- the header carries the plugin's **npm identity** — `dsh-pinned-sessions v0.5.0` —
   as a muted chip that links to
   [`@vfvrpq/dsh-pinned-sessions`](https://www.npmjs.com/package/@vfvrpq/dsh-pinned-sessions)
   on npm (`target="_blank"`; the desktop shell turns that into `shell.openExternal`,
@@ -153,8 +159,18 @@ one entry:
 | sidebar group (portals into the sidebar) | `shell.overlay` (list) | `pinned-sessions-section` |
 
 Client services it injects: `slots`, `sessions`, `workspaces`, `uiWorkspace`,
-`locale`. It reads the two stores (`sessions.list`, `workspaces.list`) through
-`useSyncExternalStore` and never writes to them directly.
+`uiSession`, `locale`. It reads the three stores (`sessions.list`,
+`workspaces.list`, `uiSession.sessionStatus`) through `useSyncExternalStore` and
+never writes to them directly.
+
+The scheduled-task clock does **not** go through a slot: the
+`sidebar.session.row.leading` seat is declared by ui-workspace's entry, the slot
+runtime rejects a `renderSlot` the caller did not declare, and declaring an
+already-declared seat throws `slot "…" is already declared`. So the group reads the
+same Host catalog (`schedule/catalog()`) itself — one read for the whole group,
+refreshed on `schedule/changed` and connection reset, released when the last row
+unmounts. `remote` is deliberately **not** a required inject: a composition without
+ui-schedule still loads the group, it just has no clock.
 
 ### Checks
 
@@ -169,6 +185,13 @@ key parity, the anchor selector, pin order, the count, the running dot, the
 unpin toggle (and that it does not also open the row), collapse, the empty hint,
 the archived note, subagent filtering, the English copy, and the npm chip (its
 text, its `href`, `target`/`rel`, and that clicking it does not toggle the group).
+
+The scheduled-task mark has its own region: the clock glyph in the 16px leading
+cell, its localized label, the row tooltip, no mark at a count of 0, and the three
+states that **outrank** it (running, pending approval, unread completion). The
+source itself is covered too — one read per subscription, active-only counting,
+one re-read per `schedule/changed` and per connection reset, release on the last
+unsubscribe, and no mark after a rejected or refused read.
 
 Because a client bundle cannot read its own manifest, `lib/client.js` repeats the
 package name and version (`PACKAGE_NAME` / `PACKAGE_VERSION`). The chip checks
@@ -197,3 +220,6 @@ test/bundle-check.mjs
   sorting, and the group is a flat list rather than one sub-group per workspace.
 - Mounting is anchor-based, not a slot: a future sidebar rewrite that removes
   `div[data-slot="sidebar.workspaces"]` would hide the group.
+- The clock mark depends on the Host Schedule face (`remote.schedule.catalog`):
+  without ui-schedule, or when that read is refused or fails, the row simply has no
+  mark — it never shows a stale one and never throws.

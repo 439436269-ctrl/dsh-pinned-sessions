@@ -20,7 +20,7 @@ DSH 本身已经支持**置顶会话**（悬停会话行点图钉，或右键 �
 插件
 自动化任务
 工作区                        ← 原生区域标题
-置顶  1  dsh-pinned-sessions v0.4.1  🔍   ← 本插件（在列表内部）
+置顶  1  dsh-pinned-sessions v0.5.0  🔍   ← 本插件（在列表内部）
    插件笔记：dsh-cost-…   默认工作区   4 小时前
 默认工作区
    新会话
@@ -30,7 +30,7 @@ DSH 本身已经支持**置顶会话**（悬停会话行点图钉，或右键 �
 打开搜索时（数量变成 `命中/总数`）：
 
 ```
-置顶  1/3  dsh-pinned-sessions v0.4.1  ✕
+置顶  1/3  dsh-pinned-sessions v0.5.0  ✕
    [ 搜索置顶会话              ]
    插件笔记：dsh-cost-…   4 小时前
 ```
@@ -42,8 +42,12 @@ DSH 本身已经支持**置顶会话**（悬停会话行点图钉，或右键 �
 - 每行显示**所属工作区**（默认工作区），并带会话自己的状态点 —— 与原生会话行**同一个来源**
   （`uiSession.sessionStatus`）：进行中是原生那个旋转弧，跑完未查看是绿点，等待审批 / 计划待审 /
   待回答是黄点并把时间换成紧凑状态（「待审批」）；标题、工作区、时间都在行 tooltip 里；
+- 空闲行若该会话有**活动中的定时任务**，行首 16px 格子里显示原生的**时钟标记**——和下面原生行
+  一模一样的那枚 `IconClockOutlineRegular`。这一格是**独占**的：进行中 / 待审批 / 未查看的状态点
+  优先，时钟只出现在真正空闲的行上；任务数是 0（或只有已停用的任务）就不显示，行 tooltip 里会
+  带上任务数；
 - **设置 → 通用**里有「置顶会话区」开关，不用改文件就能关掉；
-- 分组头带这个插件的 **npm 身份**——`dsh-pinned-sessions v0.4.1`，一小段灰字，点它跳到 npm 上的
+- 分组头带这个插件的 **npm 身份**——`dsh-pinned-sessions v0.5.0`，一小段灰字，点它跳到 npm 上的
   [`@vfvrpq/dsh-pinned-sessions`](https://www.npmjs.com/package/@vfvrpq/dsh-pinned-sessions)
   （`target="_blank"`；桌面壳会把它转成 `shell.openExternal`，所以在系统浏览器里打开，而不是
   应用内跳转）。侧栏只有 256px，chip 显示**去掉 scope 的短名**，完整包名放在 tooltip /
@@ -126,9 +130,15 @@ loader 会静默忽略。）
 | --- | --- | --- |
 | 侧栏分组（portal 进侧栏） | `shell.overlay`（list） | `pinned-sessions-section` |
 
-注入的客户端服务：`slots`、`sessions`、`workspaces`、`uiWorkspace`、`locale`。
-两个数据源（`sessions.list`、`workspaces.list`）通过 `useSyncExternalStore` 订阅，插件
-从不直接写它们。
+注入的客户端服务：`slots`、`sessions`、`workspaces`、`uiWorkspace`、`uiSession`、`locale`。
+三个数据源（`sessions.list`、`workspaces.list`、`uiSession.sessionStatus`）通过
+`useSyncExternalStore` 订阅，插件从不直接写它们。
+
+定时任务的时钟标记**不走槽位**：`sidebar.session.row.leading` 这一席由 ui-workspace 的条目
+声明，槽位运行时会拒绝调用方没有声明的 `renderSlot`，而重复声明一个已被声明的席位会直接抛
+`slot "…" is already declared` —— 所以这里改成自己读同一份 Host 目录（`schedule/catalog()`），
+整组只发一次读、跟随 `schedule/changed` 与连接重置刷新，最后一个订阅者离开时释放。`remote`
+**没有**写进必需的 `inject`：没装 ui-schedule 的组合照样能加载这个分组，只是没有时钟。
 
 ### 自检
 
@@ -140,6 +150,9 @@ loader 会静默忽略。）
 Context 跑 `apply()`，再用 hook 垫片渲染分组：断言条目 id、中英文字典键集一致、锚点选择器、
 置顶顺序与数量、运行圆点、取消置顶按钮（且不会同时触发打开）、折叠行为、空态提示、归档提示、
 子代理过滤、英文文案，以及 npm chip（文案、`href`、`target`/`rel`，点它不会折叠分组）。
+定时任务那一组另跑一遍：时钟字形与所在的 16px 格子、本地化文案、行 tooltip、计数为 0 不显示、
+以及「进行中 / 待审批 / 未查看」三种状态点**优先于**时钟；源本身的读取、只统计活动任务、
+`schedule/changed` 与连接重置各触发一次重读、退订释放、读失败/被拒时保持不标记也都覆盖了。
 
 客户端 bundle 读不到自己的 package.json，所以 `lib/client.js` 里重复写了包名与版本
 （`PACKAGE_NAME` / `PACKAGE_VERSION`）；chip 那几条断言会拿它们跟 `package.json` 比对，
@@ -165,3 +178,5 @@ test/bundle-check.mjs
 - 顺序就是原生置顶顺序（新置顶在前）；本插件不提供自定义排序，也不按工作区分成二级分组。
 - 挂载是「锚点式」而非槽位式：将来若侧栏重写、`div[data-slot="sidebar.workspaces"]` 消失，
   分组会跟着消失（不会报错）。
+- 时钟标记依赖 Host 的 Schedule 面（`remote.schedule.catalog`）：组合里没有 ui-schedule、或这次
+  读取被拒绝/失败时，行就是不显示标记，不会报错也不会显示过期状态。
