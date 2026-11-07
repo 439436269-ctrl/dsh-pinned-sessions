@@ -1,6 +1,6 @@
 {
   "name": "@vfvrpq/dsh-pinned-sessions",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Pinned sessions for DeepSeek Harness: a 「置顶」 group in the sidebar — native-shaped session rows for every pinned session across workspaces, right above the Workspace browser, with an in-place search.",
   "type": "module",
   "license": "MIT",
@@ -70,6 +70,12 @@
         "@deepseek-ai/dsh-api-workspace-controller"
       ],
       "platform": "web"
+    },
+    "compatibility": {
+      "dshReleases": {
+        "0.2.1-rc.2": "compatible",
+        "0.2.2-rc.1": "compatible"
+      }
     }
   }
 }
