@@ -626,3 +626,28 @@ tag `v0.8.0` 同指向，已推送）。本机凭据有两条：默认 helper（
 **本机 profile**：`desktop` 的 `node_modules/@vfvrpq/dsh-pinned-sessions` 仍是指向本仓库的 junction
 （开发形态，内容即 0.8.0）；`package.json` 里的依赖声明还是旧的 `0.4.1`，将来跑 `dsh plugin` 类命令
 前要改成 `link:` 或显式 `0.8.0`，否则 pnpm 会把它装回旧版。
+
+## 20. 0.8.1 —— 文件夹改成就地展开（2026-11-11）
+
+**现象**（用户原话「按0.8.0了，但是文件夹好像没法执行呀」）：点置顶里的文件夹行看不出任何变化。
+
+**根因**：0.8.0 把文件夹行的点击接到了 `uiWorkspace.openWorkspace`——那是「在该工作区新建会话」的
+入口，它只会在那个工作区里建/复用一个**空会话**。主视图本来就停在空会话欢迎页，所以屏幕上几乎没
+变化；实测点击前后正文只从 1039 字符变成 1039 字符，但网络面板确实发了 `POST /api/session/create`
+（这就是「看着没反应」的真相），还会留下没人用的空会话。
+
+**改法**：文件夹行变成可展开容器——点击就地展开该工作区的会话（缩进一级、带原生状态点、点会话才
+打开），再点收起；展开状态存 `localStorage["@vfvrpq/dsh-pinned-sessions.expandedWorkspaces"]`；
+「新建会话」收成行内显式 ＋（仍走 `openWorkspace`），与「取消置顶工作区」并列且都不冒泡到展开。
+
+**验证（临时 profile `pins-test` + 本机 CLI 起服务，playwright-core + 本机 Chrome headless）**：
+
+1. 分组头读到 `dsh-pinned-sessions v0.8.1`。
+2. 用 ＋ 置顶一个工作区（`[role=menuitem]` 里选第一项）→ 出现 1 行文件夹行。
+3. 点文件夹行：`aria-expanded=true`，**新增 0 次 `POST /api/session/create`**，列表顺序
+   `[pinned-workspace-row, pinned-workspace-session, pinned-sessions-row, …]`（子行紧跟文件夹）。
+4. 点子会话：主视图正文 1039 → 4921 字符（确实打开了那个会话）。
+5. 再点文件夹：`aria-expanded=false`，子行数归 0；全程无 pageerror。
+6. `node test/bundle-check.mjs`：**184 条**断言全过（新增：点文件夹不导航、＋ 新建会话、
+   展开后子行位置/缩进/状态点、点子会话打开、空文件夹提示、`workspaceSessions` 跳过
+   子代理/空会话/已归档/失效 id）。

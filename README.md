@@ -83,12 +83,16 @@ With the search open (the count becomes `matched/total`):
   above it (插件 / 自动化任务); a row's own pin marker stays filled, keeping
   "state" distinct from "navigation";
 - clicking a row opens that session; hovering one reveals 「取消置顶」;
-- **pinned Workspaces** (0.8.0): a **＋** in the header lists the Workspaces that are
-  not pinned yet, and picking one pins it to the top of the group. Workspace rows sit
-  **above** the session rows with the same 32px metrics — folder glyph, label,
-  directory, session count, filled pin marker — and clicking one calls the Host's own
-  `uiWorkspace.openWorkspace`, exactly like picking that Workspace natively; hovering
-  reveals 「取消置顶工作区」;
+- **pinned Workspaces** (0.8.0; folder semantics in 0.8.1): a **＋** in the header lists the
+  Workspaces that are not pinned yet, and picking one pins it to the top of the group. Workspace
+  rows sit **above** the session rows with the same 32px metrics — disclosure arrow, folder glyph,
+  label, directory, session count, filled pin marker. **Clicking the row unfolds it in place**
+  (its Sessions appear one step indented underneath, with the native state dot; clicking a Session
+  opens it) and clicking again folds it; the open/collapsed choice survives reloads. Hovering
+  reveals two actions: 「在“…”里新建会话」 (the Host's own `uiWorkspace.openWorkspace`, i.e. the
+  same path as 「新会话」) and 「取消置顶工作区」. **The folder click itself creates nothing** —
+  0.8.0 wrongly called `openWorkspace` there, which only created a blank Session, so nothing
+  visibly happened (the 「文件夹没法执行」 report of 2026-11-11);
 - the header's 🔍 filters this group in place: title match, case-insensitive,
   surrounding whitespace ignored; a Workspace row also matches its directory path;
   opening the search expands the group, and Esc or a second click closes it and clears

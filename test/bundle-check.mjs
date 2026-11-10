@@ -663,7 +663,7 @@ check("Workspace rows keep the pin order", JSON.stringify(wsRows.map((row) => ro
 check("Workspace rows are native-shaped treeitems", wsRows.every((row) => row.type === "li" && row.props.role === "treeitem" && row.props.tabIndex === 0));
 check("the Workspace row leads with the folder glyph", iconName(collectByClass(wsRows[0], "dshps_slot")[0]) === "IconFolderOpenOutlineRegular", String(iconName(collectByClass(wsRows[0], "dshps_slot")[0])));
 check("the Workspace row names the Workspace and counts its sessions", textOf(wsRows[0]).includes("另一个工作区") && textOf(wsRows[0]).includes("1 个会话"), textOf(wsRows[0]));
-check("the Workspace row announces itself as a Workspace", wsRows[0].props["aria-label"] === "打开工作区“另一个工作区”", String(wsRows[0].props["aria-label"]));
+check("the Workspace row announces its disclosure state", wsRows[0].props["aria-label"] === "展开“另一个工作区”" && wsRows[0].props["aria-expanded"] === "false", String(wsRows[0].props["aria-label"]));
 check("the Workspace row carries the pinned marker", collect(wsRows[0], "pinned-workspace-pin-indicator").length === 1);
 const listRows = React.Children.toArray(collect(workspaceTree, "pinned-sessions-list")[0]?.props?.children).filter(React.isValidElement);
 check("Workspace rows sit above every session row", listRows.slice(0, 2).every((node) => node.props["data-testid"] === "pinned-workspace-row") && listRows[2]?.props["data-testid"] === "pinned-sessions-row", listRows.map((node) => node.props["data-testid"]).join(","));
@@ -671,8 +671,42 @@ check("the group count adds both halves", textOf(collectByClass(workspaceTree, "
 
 const openedWorkspaces = [];
 const wsOpenTree = renderSection({ ...baseProps, openWorkspace: (id) => openedWorkspaces.push(id) });
+/* A click on the folder row is a disclosure, never a navigation. */
 collect(wsOpenTree, "pinned-workspace-row")[0].props.onClick();
-check("clicking a Workspace row opens that Workspace", JSON.stringify(openedWorkspaces) === JSON.stringify(["w2"]), JSON.stringify(openedWorkspaces));
+check("clicking a Workspace row does not navigate or create anything", openedWorkspaces.length === 0, JSON.stringify(openedWorkspaces));
+const newSession = collect(wsOpenTree, "pinned-workspace-new-session")[0];
+check("the Workspace row offers the explicit new-session action", newSession?.props["aria-label"] === "在“另一个工作区”里新建会话", String(newSession?.props["aria-label"]));
+let newSessionStopped = false;
+newSession.props.onClick({ stopPropagation: () => { newSessionStopped = true; } });
+check("the new-session action opens that Workspace without collapsing it", newSessionStopped === true && JSON.stringify(openedWorkspaces) === JSON.stringify(["w2"]), JSON.stringify(openedWorkspaces));
+
+/* Expanded: the folder's own Sessions render underneath it, indented. */
+const expandedTree = renderSection(baseProps, [false, false, "", null, null, false, false, ["w2"]]);
+const nested = collect(expandedTree, "pinned-workspace-session");
+check("an expanded folder lists its Sessions in place", nested.length === 1 && nested[0].props["data-session-id"] === "s4", nested.map((node) => node.props["data-session-id"]).join(","));
+check("nested rows are indented one step", collectByClass(nested[0], "dshps_nestedRow").length === 1);
+check("the expanded folder row reports its state", collect(expandedTree, "pinned-workspace-row")[0].props["aria-expanded"] === "true" && collectByClass(expandedTree, "dshps_wsChevron")[0]?.props.className.includes("dshps_chevronOpen") === true, String(collectByClass(expandedTree, "dshps_wsChevron")[0]?.props.className));
+const expandedList = React.Children.toArray(collect(expandedTree, "pinned-sessions-list")[0]?.props?.children).filter(React.isValidElement);
+check("the nested row sits directly under its folder", expandedList[0]?.props["data-testid"] === "pinned-workspace-row" && expandedList[1]?.props["data-testid"] === "pinned-workspace-session", expandedList.map((node) => node.props["data-testid"]).join(","));
+nested[0].props.onClick();
+check("clicking a nested Session opens it", JSON.stringify(opened) === JSON.stringify(["s2", "s4"]), JSON.stringify(opened));
+
+pinnedWorkspaceSource.set(["w9"]);
+const emptyText = renderSection({
+	...baseProps,
+	workspacesStore: store({ ...workspacesA, items: [...workspacesA.items, { workspaceId: "w9", title: "空工作区", path: "/tmp/empty", sessionIds: [] }] })
+}, [false, false, "", null, null, false, false, ["w9"]]);
+check("an expanded empty folder says so", collect(emptyText, "pinned-workspace-empty").length === 1 && textOf(emptyText).includes("还没有会话"), textOf(emptyText).slice(0, 120));
+/* Back to the two-Workspace fixture the remaining assertions were written against. */
+pinnedWorkspaceSource.set(["w2", "w1"]);
+
+const { workspaceSessions } = liveBundle.exported.__test__;
+const mixed = workspaceSessions(
+	{ ...workspacesA, archivedSessionIds: ["s3"] },
+	{ byId: { a: { id: "a", title: "A" }, b: { id: "b", title: "B", blank: true }, c: { id: "c", title: "C", origin: "subagent" }, d: { id: "d", title: "D" } } },
+	{ sessionIds: ["a", "b", "c", "d", "gone"] }
+);
+check("nested Sessions skip blank, subagent, archived and stale ids", JSON.stringify(mixed.map((row) => row.id)) === JSON.stringify(["a", "d"]), mixed.map((row) => row.id).join(","));
 
 let wsStop = false;
 const wsUnpin = collect(wsRows[0], "pinned-workspace-unpin")[0];

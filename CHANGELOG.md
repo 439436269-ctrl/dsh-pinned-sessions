@@ -3,6 +3,20 @@
 All notable changes to this plugin. Dates are the local (Asia/Shanghai) day the
 change was verified on DSH Desktop 0.2.0-rc.2.
 
+## 0.8.1 — 2026-11-11
+
+点文件夹会「没反应」：0.8.0 的置顶工作区行调用 `uiWorkspace.openWorkspace`，而那正是「在该工作区
+新建会话」的入口——它只在那个工作区里建/复用一个空会话，主视图本来就停在空会话上，所以屏幕上几乎
+没有变化，还会留下没人用的空会话。用户反馈「按 0.8.0 了，但是文件夹好像没法执行」。
+
+- **文件夹行改成可展开容器**：点一下就地展开该工作区的会话（缩进一级、带原生状态点、点会话才打开），
+  再点收起；展开状态存 `localStorage["@vfvrpq/dsh-pinned-sessions.expandedWorkspaces"]`，刷新仍展开。
+- **点文件夹本身不再创建任何东西**；「新建会话」收成行内显式的 ＋ 按钮（`uiWorkspace.openWorkspace`），
+  与「取消置顶工作区」并列，且都不会同时触发展开/收起。
+- 空工作区展开时给一行「这个工作区里还没有会话」；嵌套列表按原生规则跳过子代理、空会话与已归档会话。
+- 自检 175 → 184：展开后子行位置/缩进/状态、点文件夹不导航、点子会话打开、空文件夹提示、
+  `workspaceSessions` 的过滤规则。
+
 ## 0.8.0 — 2026-11-10
 
 The group could only pin Sessions. The Host has no Workspace pin at all — `workspace`
