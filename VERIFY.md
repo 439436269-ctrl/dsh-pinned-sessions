@@ -74,7 +74,7 @@ inject face 的四个成员、中英文字典键集一致、锚点选择器
 | --- | --- |
 | 分组渲染在侧栏、且位置正确 | ✅ `.dshps_host` 是 `div[data-slot="sidebar.workspaces"]` 的**前一个兄弟**、父节点就是同一个 region area；侧栏文本顺序为 插件 → **置顶 1 → 行** → 工作区 → 默认工作区 |
 | 与原生行度量像素对齐 | ✅ 我的分组头/行盒 = 原生分组头/原生行盒（x=12、w=256、h=34/32），行标题 x 均为 40px |
-| 点行打开会话 | ✅ 打开 `session-99808fba…`，分组留在侧栏不动 |
+| 点行打开会话 | ✅ 打开 `<session-…>`，分组留在侧栏不动 |
 | 取消置顶 | ✅ 数量 1→0、行消失、出现空态提示「在会话行上点图钉即可置顶」；原生侧栏的置顶标记同时归零；`workspace.json` 的 `pinnedSessionIds` 变空 |
 | 原生置顶 → 分组实时更新 | ✅ 点原生行操作「置顶会话」后，分组立刻回到「置顶 1 + 该行」，存储恢复为原始的单条置顶 |
 | 折叠 + 跨刷新保留 | ✅ 点头部 → 行/提示消失、`aria-expanded=false`、`localStorage["dsh-pinned-sessions.collapsed"]="true"`；刷新后仍是收起态；再点即可展开 |
@@ -520,7 +520,7 @@ API 回读 `contents/lib/client.js` 确认 `"uiSession"`、`statusStore: uiSessi
 2. 真实鼠标移入第一行（`Input.dispatchMouseEvent`）：时间与图钉同时 `display:none`、
    动作组 `display:inline-flex`，两个按钮 `pinned-sessions-archive` →
    `pinned-sessions-pin`（原生同一行的 `rowActions` 是 `归档会话` → `取消置顶`，一致）。
-3. 点开第一行后：置顶组里被选中的行 = 原生列表里被选中的行 = `session-7ace4bbf…`，
+3. 点开第一行后：置顶组里被选中的行 = 原生列表里被选中的行 = `<session-…>`，
    `aria-selected="true"` 各 1 行。
 4. 截图（`_pv_sidebar3.png`，临时产物）目视：置顶 6 行的时钟/时间/图钉与下方同会话原生行对得上；
    hover 行换成了「归档 + 实心图钉」两个按钮。
