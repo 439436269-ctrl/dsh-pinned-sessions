@@ -387,7 +387,7 @@ check("without a status store the summary flag still lights the spinner", collec
 
 //#region settings row
 const settingsTree = renderComponent("PinnedSettingsRow", { t });
-check("the settings row names the group and explains it", textOf(settingsTree).includes("置顶会话区") && textOf(settingsTree).includes("工作区"), textOf(settingsTree));
+check("the settings row names the group and explains it", textOf(settingsTree).includes("置顶区") && textOf(settingsTree).includes("工作区"), textOf(settingsTree));
 check("the settings row renders the native switch", collect(settingsTree, "fake-switch").length === 1);
 const switchOff = collect(settingsTree, "fake-switch")[0];
 check("the switch reflects the shared preference", switchOff?.props["aria-checked"] === "true", String(switchOff?.props["aria-checked"]));
@@ -638,6 +638,66 @@ const stopDenied = deniedSource.subscribe(() => { deniedNotifications += 1; });
 await settle();
 check("a refused catalog read leaves the rows unmarked", Object.keys(deniedSource.getSnapshot()).length === 0 && deniedNotifications === 0);
 stopDenied();
+//#endregion
+
+//#region pinned Workspaces (the one piece of state this plugin owns)
+/*
+ * The Host models pins for Sessions only: `workspace` carries `pinnedSessionIds`
+ * and its controller exposes `pinSession`/`unpinSession` — no `pinWorkspace` exists
+ * in any Host package. So this group persists its own Workspace pin list under one
+ * namespaced key and renders those rows above the session rows.
+ */
+const { pinnedWorkspaceSource, pinnedWorkspaceItems, filterWorkspaceItems, workspaceLabelOf } = liveBundle.exported.__test__;
+check("the Workspace pin list is exported for direct testing", typeof pinnedWorkspaceSource?.getSnapshot === "function" && typeof pinnedWorkspaceItems === "function" && typeof filterWorkspaceItems === "function" && typeof workspaceLabelOf === "function");
+check("the list starts empty when storage is unavailable", pinnedWorkspaceSource.getSnapshot().length === 0, JSON.stringify(pinnedWorkspaceSource.getSnapshot()));
+pinnedWorkspaceSource.set(["w2", "w1", "w2", ""]);
+check("pinning keeps the write order and drops duplicates and blanks", JSON.stringify(pinnedWorkspaceSource.getSnapshot()) === JSON.stringify(["w2", "w1"]), JSON.stringify(pinnedWorkspaceSource.getSnapshot()));
+check("a Workspace that left the registry drops out of the group", JSON.stringify(pinnedWorkspaceItems(workspacesA, ["w2", "gone"]).map((item) => item.workspaceId)) === JSON.stringify(["w2"]), JSON.stringify(pinnedWorkspaceItems(workspacesA, ["w2", "gone"]).map((item) => item.workspaceId)));
+check("Workspace filtering matches the label and ignores case", filterWorkspaceItems(workspacesA.items, " 另一个 ", t).length === 1 && filterWorkspaceItems(workspacesA.items, "", t).length === 2);
+check("Workspace filtering also matches the directory", filterWorkspaceItems(workspacesA.items, "code/other", t).length === 1);
+
+const workspaceTree = renderSection(baseProps);
+const wsRows = collect(workspaceTree, "pinned-workspace-row");
+check("every pinned Workspace gets a row", wsRows.length === 2, String(wsRows.length));
+check("Workspace rows keep the pin order", JSON.stringify(wsRows.map((row) => row.props["data-workspace-id"])) === JSON.stringify(["w2", "w1"]), wsRows.map((row) => row.props["data-workspace-id"]).join(","));
+check("Workspace rows are native-shaped treeitems", wsRows.every((row) => row.type === "li" && row.props.role === "treeitem" && row.props.tabIndex === 0));
+check("the Workspace row leads with the folder glyph", iconName(collectByClass(wsRows[0], "dshps_slot")[0]) === "IconFolderOpenOutlineRegular", String(iconName(collectByClass(wsRows[0], "dshps_slot")[0])));
+check("the Workspace row names the Workspace and counts its sessions", textOf(wsRows[0]).includes("另一个工作区") && textOf(wsRows[0]).includes("1 个会话"), textOf(wsRows[0]));
+check("the Workspace row announces itself as a Workspace", wsRows[0].props["aria-label"] === "打开工作区“另一个工作区”", String(wsRows[0].props["aria-label"]));
+check("the Workspace row carries the pinned marker", collect(wsRows[0], "pinned-workspace-pin-indicator").length === 1);
+const listRows = React.Children.toArray(collect(workspaceTree, "pinned-sessions-list")[0]?.props?.children).filter(React.isValidElement);
+check("Workspace rows sit above every session row", listRows.slice(0, 2).every((node) => node.props["data-testid"] === "pinned-workspace-row") && listRows[2]?.props["data-testid"] === "pinned-sessions-row", listRows.map((node) => node.props["data-testid"]).join(","));
+check("the group count adds both halves", textOf(collectByClass(workspaceTree, "dshps_count")[0]) === "5", textOf(collectByClass(workspaceTree, "dshps_count")[0]));
+
+const openedWorkspaces = [];
+const wsOpenTree = renderSection({ ...baseProps, openWorkspace: (id) => openedWorkspaces.push(id) });
+collect(wsOpenTree, "pinned-workspace-row")[0].props.onClick();
+check("clicking a Workspace row opens that Workspace", JSON.stringify(openedWorkspaces) === JSON.stringify(["w2"]), JSON.stringify(openedWorkspaces));
+
+let wsStop = false;
+const wsUnpin = collect(wsRows[0], "pinned-workspace-unpin")[0];
+check("the Workspace row offers the native unpin verb", wsUnpin?.props["aria-label"] === "取消置顶工作区", String(wsUnpin?.props["aria-label"]));
+wsUnpin.props.onClick({ stopPropagation: () => { wsStop = true; } });
+check("unpinning a Workspace does not also open it", wsStop === true && openedWorkspaces.length === 1);
+check("unpinning a Workspace drops it from the shared list", JSON.stringify(pinnedWorkspaceSource.getSnapshot()) === JSON.stringify(["w1"]), JSON.stringify(pinnedWorkspaceSource.getSnapshot()));
+
+pinnedWorkspaceSource.set(["w2", "w1"]);
+const wsSearch = renderSection(baseProps, [false, true, "另一个"]);
+check("search narrows the Workspace rows too", collect(wsSearch, "pinned-workspace-row").length === 1 && collect(wsSearch, "pinned-sessions-row").length === 0, `${collect(wsSearch, "pinned-workspace-row").length}/${collect(wsSearch, "pinned-sessions-row").length}`);
+check("the filtered count adds both halves", textOf(collectByClass(wsSearch, "dshps_count")[0]) === "1/5", textOf(collectByClass(wsSearch, "dshps_count")[0]));
+
+pinnedWorkspaceSource.set(["w2"]);
+const headPicker = collect(renderSection(baseProps), "pinned-workspace-picker")[0];
+check("the header exposes the Workspace picker", headPicker?.props["aria-haspopup"] === "menu" && headPicker?.props["aria-expanded"] === "false", JSON.stringify(headPicker?.props));
+const openPicker = renderSection(baseProps, [false, false, "", null, null, false, true]);
+const picks = collect(openPicker, "pinned-workspace-pick");
+check("an open picker offers only the unpinned Workspaces", picks.length === 1 && textOf(picks[0]) === "默认工作区", picks.map((node) => textOf(node)).join(","));
+picks[0].props.onClick();
+check("picking a Workspace pins it at the front", JSON.stringify(pinnedWorkspaceSource.getSnapshot()) === JSON.stringify(["w1", "w2"]), JSON.stringify(pinnedWorkspaceSource.getSnapshot()));
+const fullPicker = renderSection(baseProps, [false, false, "", null, null, false, true]);
+check("a fully pinned registry says so instead of showing an empty menu", collect(fullPicker, "pinned-workspace-picker-empty").length === 1 && collect(fullPicker, "pinned-workspace-pick").length === 0);
+pinnedWorkspaceSource.set([]);
+check("the pin list can be cleared for a fresh start", pinnedWorkspaceSource.getSnapshot().length === 0);
 //#endregion
 
 //#region the row's ⋯ menu (native items, reimplemented)

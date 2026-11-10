@@ -3,6 +3,33 @@
 All notable changes to this plugin. Dates are the local (Asia/Shanghai) day the
 change was verified on DSH Desktop 0.2.0-rc.2.
 
+## 0.8.0 — 2026-11-10
+
+The group could only pin Sessions. The Host has no Workspace pin at all — `workspace`
+carries `pinnedSessionIds`, and `dsh-api-workspace-controller` exposes
+`pinSession`/`unpinSession` only — so a pinned folder had nowhere to live.
+
+- **Pinned Workspaces**, drawn above the pinned session rows with the same 32px row
+  metrics: folder glyph, label, the directory when it differs from the label, the
+  session count, the filled pin marker, and 取消置顶 on hover. Clicking a row calls
+  the Host's own `uiWorkspace.openWorkspace`, so it navigates exactly like the native
+  picker.
+- **A `＋` picker in the group header** lists the Workspaces that are not pinned yet
+  (the native Workspace header owns its own seats, so a plugin cannot extend it);
+  every entry pins on select, and a fully pinned registry says
+  `所有工作区都已置顶` instead of showing an empty menu.
+- **One piece of state, documented**: the pin list is a JSON array of Workspace ids in
+  `localStorage["@vfvrpq/dsh-pinned-sessions.pinnedWorkspaces"]`, most recently pinned
+  first, mirroring the Host's own order for `pinnedSessionIds`. This deliberately
+  breaks the earlier "this plugin adds no state" headline — the alternative would be a
+  Host change.
+- **Search and the count cover both halves** (`matched/total`), a Workspace whose id
+  left the registry silently drops out instead of leaving a dangling row, and an empty
+  group explains both gestures (`点 ＋ 置顶工作区，或在会话行上点图钉`).
+- The self-check grew to 175 assertions: pin-order/dedup of the stored list, stale ids,
+  label and path filtering, row order above sessions, the count, navigation, unpin,
+  the picker's contents and its empty state.
+
 ## 0.7.0 — 2026-11-06
 
 The pinned rows had no `⋯` menu at all: every session action except pin and archive

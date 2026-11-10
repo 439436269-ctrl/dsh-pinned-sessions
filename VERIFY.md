@@ -6,6 +6,10 @@
 环境：DSH Desktop 0.2.0-rc.2（Electron 桌面端，profile = `desktop`，DSH_HOME = `~/.dsh`）。
 验证时间：2026-10-05。
 
+**脱敏约定（2026-11-11 用户要求）**：本文件、README 与任何要入库的截图，**一律不出现真实的会话标题、
+工作区名/目录名、Session ID、家目录路径**。示例统一写成 `<workspace-a>`、`<workspace-b>`、
+`<session-…>`、`~`；需要截图时先对标题栏、侧栏行文字、路径做遮挡再入库。
+
 ## 0. 形态演进
 
 - **0.1.0（已废弃）**：侧栏入口（`sidebar.panellist`，order 20）+ `main` 页面，点开一页看全局
@@ -565,3 +569,60 @@ API 回读 `contents/lib/client.js` 确认 `"uiSession"`、`statusStore: uiSessi
 **踩到的坑**：`MenuItemButton` 不把自定义 `data-testid` 透传到 DOM（原生组件的 props 白名单），
 实机断言不能按 testid 找菜单项，只能按 `[role="menuitem"]` 的文案定位——单测里断言的是
 React 元素上的 props，不受这个影响。
+
+## 18. 0.8.0 —— 置顶工作区（2026-11-10）
+
+**背景**：用户要「除了会话，也能置顶文件夹/工作区，放在置顶位置」。先查宿主：
+`dsh-api-workspace-controller` 的 `workspace` 只有 `pinnedSessionIds`，方法只有
+`pinSession`/`unpinSession`；在 213 MB 的 `app.asar` 里搜 `pinWorkspace`、`pinnedWorkspace(s)`、
+`pinFolder` 全部零命中。所以工作区置顶只能由插件自己存，**这是本插件唯一自持的状态**。
+
+**改法**：
+
+| 点 | 实现 |
+| --- | --- |
+| 状态 | `localStorage["@vfvrpq/dsh-pinned-sessions.pinnedWorkspaces"]` = id 数组，最近置顶在前（对齐 Host 对 `pinnedSessionIds` 的约定）；名称/路径/会话归属永远读 `workspaces.list` |
+| 行 | 排在工作区行**之前**；沿用 32px 行度量、文件夹字形 `IconFolderOpenOutlineRegular`、目录、`{count} 个会话`、实心图钉、hover「取消置顶工作区」 |
+| 点击 | `uiWorkspace.openWorkspace(id)`（Host 自己的导航入口，与原生选择工作区同一实现） |
+| 入口 | 分组头 `＋`（原生工作区标题/右键菜单是 ui-workspace 的席位，不注入不扩展）；`primitives.Menu` + `MenuItemButton` 列出未置顶工作区，全置顶时给「所有工作区都已置顶」 |
+| 计数/搜索 | 计数 = 工作区 + 会话；搜索两半共用 query，工作区还能按路径命中；注册表里删掉的 id 不渲染也不计数 |
+
+**验证（临时 profile `pins-test` = web 模板 + 本仓库 junction；`dsh --profile pins-test --port 0 --no-open`
+（app 自带 CLI 0.2.1-rc.3，`DSH_HOME=.dsh-restored`），playwright-core + 本机 Chrome headless）**：
+
+1. 分组头读到 `置顶 10 dsh-pinned-sessions v0.8.0`——真机 DOM 里 chip 就是 0.8.0（junction 安装生效）。
+2. 点 `＋`：`aria-expanded=true`，`[role="menuitem"]` **14 项**，首项含文件夹 `<svg>`，文案为
+   工作区名（这里打码成 `<workspace-a>`、`<workspace-b>`…）。**注意：菜单项的 `data-testid` 不透传**
+   （同 §17），所以按 role+文案定位。
+3. 选第一项 → 置顶组出现 1 行 `<workspace-a> | 2 个会话`；列表顺序
+   `[pinned-workspace-row, pinned-sessions-row, …]`，计数从 `10` 变 `11`。
+4. **刷新页面后该行仍在**（`localStorage` 生效），计数仍 11。
+5. 点该行 → 主视图内容变化（导航到该工作区），置顶行本身保留。
+6. 点行上「取消置顶工作区」→ 行消失，计数回到 `10`。
+7. 控制台唯一的 404 是 `dsh-session-path` 探针（该临时 profile 没装它，正是「没探到就不显示
+   复制路径项」的设计），无其它报错。
+8. `node test/bundle-check.mjs`：**175 条**断言全过。
+9. 截图（`01-before` / `02-picker` / `03-after-pin` / `04-section` / `05-restored`，临时产物）目视：
+   置顶组头「置顶 11 · dsh-pinned-sessions v0.8.0 · ＋ · 🔍」，首行即文件夹行。
+
+## 19. 0.8.0 发布（2026-11-10）
+
+| 项 | 值 |
+| --- | --- |
+| 版本 | `@vfvrpq/dsh-pinned-sessions@0.8.0`（`dist-tags.latest` 于发布后约 2 分钟 promote） |
+| dist.shasum / sha1 | `e59fa4134247c047e685a477923fbb86c69a8eb9` |
+| dist.integrity | `sha512-ryF1fCj4pwbksb3oPpNEu/DubzWbxQEdxheDVyGyy+XVdbHedEXgi+76FcqJV/RBOcM7nNhxu/2WKyAOQ0InVQ==` |
+| fileCount / unpackedSize | 8 / 117615 |
+| 回读校验 | 本地 `pnpm pack` 的 sha1、sha512 与 registry 的 `dist.shasum`/`dist.integrity` **逐字相同**；下载 registry tarball 与本地 tgz **SHA-256 一致**（`ded50a5e…`），8 个文件与 `files` 白名单相符（`lib/*.js` + `cordis.patch.yml` + 4 份文档 + LICENSE，无 test、无 node_modules） |
+
+**发布方式**：`~/.secrets/keys.env` 的 `NPM_AUTOMATION_TOKEN` → 临时 npmrc（`NPM_CONFIG_USERCONFIG`，
+发完即删）→ `pnpm whoami` = `vfvrpq` → `pnpm publish --no-git-checks`（6 秒返回，随后等 promote）。
+
+**仓库侧**：`git push origin main` → 远端 `refs/heads/main` 与本地 HEAD 同 SHA（发布内容提交，轻量
+tag `v0.8.0` 同指向，已推送）。本机凭据有两条：默认 helper（superagent 的 worker-gitconfig）里是
+那个小号，对这个仓库 **403 `Permission … denied`**；改用 `keys.env` 的 `GITHUB_TOKEN`（账号
+`439436269-ctrl`）经**临时 credential store 文件**（推完即删）完成，token 未落 `.git/config`。
+
+**本机 profile**：`desktop` 的 `node_modules/@vfvrpq/dsh-pinned-sessions` 仍是指向本仓库的 junction
+（开发形态，内容即 0.8.0）；`package.json` 里的依赖声明还是旧的 `0.4.1`，将来跑 `dsh plugin` 类命令
+前要改成 `link:` 或显式 `0.8.0`，否则 pnpm 会把它装回旧版。

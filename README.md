@@ -72,7 +72,7 @@ With the search open (the count becomes `matched/total`):
   chips). Rename opens the native modal shape, both copy actions confirm with a short
   notice, and the session-path row appears **only when `dsh-session-path` answers its
   `/api/dsh-session-path/resolve` route** (probed once at mount, then used to copy);
-- the header carries the plugin's **npm identity** — `dsh-pinned-sessions v0.7.0` —
+- the header carries the plugin's **npm identity** — `dsh-pinned-sessions v0.8.0` —
   as a muted chip that links to
   [`@vfvrpq/dsh-pinned-sessions`](https://www.npmjs.com/package/@vfvrpq/dsh-pinned-sessions)
   on npm (`target="_blank"`; the desktop shell turns that into `shell.openExternal`,
@@ -83,19 +83,37 @@ With the search open (the count becomes `matched/total`):
   above it (插件 / 自动化任务); a row's own pin marker stays filled, keeping
   "state" distinct from "navigation";
 - clicking a row opens that session; hovering one reveals 「取消置顶」;
+- **pinned Workspaces** (0.8.0): a **＋** in the header lists the Workspaces that are
+  not pinned yet, and picking one pins it to the top of the group. Workspace rows sit
+  **above** the session rows with the same 32px metrics — folder glyph, label,
+  directory, session count, filled pin marker — and clicking one calls the Host's own
+  `uiWorkspace.openWorkspace`, exactly like picking that Workspace natively; hovering
+  reveals 「取消置顶工作区」;
 - the header's 🔍 filters this group in place: title match, case-insensitive,
-  surrounding whitespace ignored; opening the search expands the group, and Esc or
-  a second click closes it and clears the query; a query with no match gets its own
-  line, distinct from the "nothing pinned yet" hint;
+  surrounding whitespace ignored; a Workspace row also matches its directory path;
+  opening the search expands the group, and Esc or a second click closes it and clears
+  the query; a query with no match gets its own line, distinct from the "nothing
+  pinned yet" hint; the count adds both halves (Workspaces + Sessions) and reads
+  `matched/total` while searching;
 - the header is a disclosure control — click to collapse, and the choice survives
-  reloads. When nothing is pinned the group shows a one-line hint instead of rows;
+  reloads. When nothing is pinned the group shows a one-line hint instead of rows
+  (`点 ＋ 置顶工作区，或在会话行上点图钉`);
 - running sessions keep the native state dot; archived pins are hidden with a
   count note; subagent sessions never appear.
 
-It owns **no new state**: pinning is the Host capability the native Workspace
+Session pinning owns **no new state**: it is the Host capability the native Workspace
 browser already ships (`dsh-api-workspace-controller` → `workspaces.pinSession` /
 `unpinSession`, persisted in the `workspace` storage unit), so the sidebar and the
 group always agree — pin with either one and the other updates immediately.
+
+**Workspace pinning is the one exception.** The Host models pins for Sessions only
+(`workspace` carries `pinnedSessionIds`, the controller exposes
+`pinSession`/`unpinSession`, and no Host package has `pinWorkspace`), so this list is
+stored by the plugin: one namespaced key,
+`localStorage["@vfvrpq/dsh-pinned-sessions.pinnedWorkspaces"]`, holding a JSON array of
+Workspace ids, most recently pinned first (the Host's own order for
+`pinnedSessionIds`). It stores the pin choice and nothing else — Workspace names,
+paths and session membership always come from `workspaces.list`, never a second copy.
 
 ## How it is mounted
 
@@ -229,6 +247,12 @@ test/bundle-check.mjs
 
 - The group lists **pinned, non-archived** sessions; archived pins are summarised
   in a note instead of listed (matching the native archive filter).
+- Workspace pins are **plugin-local state** (the Host has no `pinWorkspace`): another
+  browser profile, or cleared site data, loses the list; a Workspace removed from the
+  registry drops its row (a stale id is neither rendered nor counted).
+- A Workspace can only be pinned from the header's ＋: the native Workspace header and
+  its context menu belong to ui-workspace's own seats, which this plugin neither
+  injects into nor extends.
 - Subagent sessions (`origin: "subagent"`) never appear.
 - Order is the native pin order (newest pin first); this plugin adds no custom
   sorting, and the group is a flat list rather than one sub-group per workspace.
