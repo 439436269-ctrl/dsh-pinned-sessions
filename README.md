@@ -83,6 +83,8 @@ With the search open (the count becomes `matched/total`):
   above it (插件 / 自动化任务); a row's own pin marker stays filled, keeping
   "state" distinct from "navigation";
 - clicking a row opens that session; hovering one reveals 「取消置顶」;
+
+![The pinned group: an unfolded folder lists its own Sessions one step indented (session and Workspace names are pixelated)](https://raw.githubusercontent.com/439436269-ctrl/dsh-pinned-sessions/main/docs/pinned-workspaces.png)
 - **pinned Workspaces** (0.8.0; folder semantics in 0.8.1): a **＋** in the header lists the
   Workspaces that are not pinned yet, and picking one pins it to the top of the group. Workspace
   rows sit **above** the session rows with the same 32px metrics — disclosure arrow, folder glyph,

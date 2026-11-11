@@ -3,6 +3,12 @@
 All notable changes to this plugin. Dates are the local (Asia/Shanghai) day the
 change was verified on DSH Desktop 0.2.0-rc.2.
 
+## 0.8.2 — 2026-11-11
+
+仅文档：两个 README 各加一张置顶分组的效果图（文件夹行展开、子会话缩进一级），指向仓库
+`docs/pinned-workspaces.png`。图里的**会话标题与工作区名全部像素化打码**，只保留分组头、
+文件夹/子行的层级、时间与图钉——代码与 0.8.1 完全一致。
+
 ## 0.8.1 — 2026-11-11
 
 点文件夹会「没反应」：0.8.0 的置顶工作区行调用 `uiWorkspace.openWorkspace`，而那正是「在该工作区
