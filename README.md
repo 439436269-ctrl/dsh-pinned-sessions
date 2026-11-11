@@ -92,7 +92,9 @@ With the search open (the count becomes `matched/total`):
   (its Sessions appear one step indented underneath, with the native state dot; clicking a Session
   opens it) and clicking again folds it; the open/collapsed choice survives reloads. Hovering
   reveals two actions: 「在“…”里新建会话」 (the Host's own `uiWorkspace.openWorkspace`, i.e. the
-  same path as 「新会话」) and 「取消置顶工作区」. **The folder click itself creates nothing** —
+  same path as 「新会话」) and 「取消置顶工作区」. **Right-clicking a Workspace row in the sidebar** also
+  offers 「置顶工作区 / 取消置顶工作区」 as a new first item of the native menu (registered through
+  DSH's `contextMenus` registry, with the native pin glyph). **The folder click itself creates nothing** —
   0.8.0 wrongly called `openWorkspace` there, which only created a blank Session, so nothing
   visibly happened (the 「文件夹没法执行」 report of 2026-11-11);
 - the header's 🔍 filters this group in place: title match, case-insensitive,

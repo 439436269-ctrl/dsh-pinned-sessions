@@ -734,6 +734,40 @@ pinnedWorkspaceSource.set([]);
 check("the pin list can be cleared for a fresh start", pinnedWorkspaceSource.getSnapshot().length === 0);
 //#endregion
 
+//#region the native Workspace context menu (contextMenus registry)
+/*
+ * The Workspace row's right-click menu is not a slot: ui-workspace contributes
+ * 重命名 / 在文件夹显示 / 删除工作区 through the generic `contextMenus` registry. This
+ * plugin joins that same menu from a waiting sub-fiber, so a host that predates the
+ * registry simply never runs the callback and loses nothing else.
+ */
+/* The contribution closes over the instance the bundle was booted with, not the shared render instance. */
+const menuPinSource = booted.exported.__test__.pinnedWorkspaceSource;
+const menuFiber = booted.subFibers.find((fiber) => (fiber.deps ?? []).includes("contextMenus"));
+check("the Workspace menu contribution waits for the contextMenus registry", menuFiber !== undefined, booted.subFibers.map((fiber) => (fiber.deps ?? []).join("+")).join(","));
+const contributions = [];
+let menuEffects = 0;
+menuFiber.callback({
+	effect: (callback) => { menuEffects += 1; return callback(); },
+	contextMenus: { register: (input) => { contributions.push(input); return () => {}; } }
+});
+check("the contribution registers through ctx.effect", menuEffects === 1 && contributions.length === 1, `${menuEffects}/${contributions.length}`);
+const provider = contributions[0];
+check("the contribution targets the workspace menu family", provider?.target === "workspace", String(provider?.target));
+check("it sorts ahead of the native rename item (order 100)", provider.order === 50, String(provider.order));
+check("it observes the pin list so the label can flip in place", typeof provider.observe === "function" && provider.observe().length === 1 && typeof provider.observe()[0].subscribe === "function");
+menuPinSource.set([]);
+const unpinnedAction = provider.resolve({ workspaceId: "w1", path: "/tmp/w1", displayTitle: "W1" });
+check("an unpinned Workspace offers 置顶工作区 with the native pin glyph", unpinnedAction.length === 1 && unpinnedAction[0].label === "置顶工作区" && unpinnedAction[0].icon.key === "workspace.pin", JSON.stringify(unpinnedAction));
+menuPinSource.set(["w1"]);
+const pinnedAction = provider.resolve({ workspaceId: "w1" });
+check("a pinned Workspace offers 取消置顶 with the filled glyph", pinnedAction[0].label === "取消置顶工作区" && pinnedAction[0].icon.key === "workspace.unpin", JSON.stringify(pinnedAction));
+pinnedAction[0].run();
+check("running the entry unpins that Workspace", menuPinSource.getSnapshot().length === 0, JSON.stringify(menuPinSource.getSnapshot()));
+check("a target without a Workspace id yields no entry", provider.resolve({}).length === 0 && provider.resolve(undefined).length === 0);
+menuPinSource.set([]);
+//#endregion
+
 //#region the row's ⋯ menu (native items, reimplemented)
 /*
  * The native menu's rows live in the `sidebar.workspaces.session.menu.item` seat,

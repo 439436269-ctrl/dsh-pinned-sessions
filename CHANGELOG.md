@@ -3,6 +3,19 @@
 All notable changes to this plugin. Dates are the local (Asia/Shanghai) day the
 change was verified on DSH Desktop 0.2.0-rc.2.
 
+## 0.8.3 — 2026-11-11
+
+工作区行的右键菜单只有「重命名 / 在文件夹显示 / 删除工作区」，没有置顶入口（用户截图反馈
+「没指定文件夹的选项，我希望能增加」）。
+
+- **原生工作区右键菜单里多一项**「置顶工作区」/「取消置顶工作区」，排在「重命名」之前；
+  它走 DSH 的 `contextMenus` 注册表（ui-workspace 自己那三项也走这套），图标复用 ui-workspace
+  已注册的 `workspace.pin` / `workspace.unpin`，所以字形与原生一致；菜单开着时置顶完成，标签会
+  就地翻成「取消置顶工作区」（`observe` 订阅了置顶列表）。
+- 接线放在**等待式子 fiber**（`ctx.inject(["contextMenus"], …)`）：没有该注册表的老宿主
+  不加载这一项，分组与「＋」选择器照常工作。
+- 自检 184 → 193：贡献项的目标族/排序/图标键/标签翻转/执行回调/空目标，以及「必须等注册表」。
+
 ## 0.8.2 — 2026-11-11
 
 仅文档：两个 README 各加一张置顶分组的效果图（文件夹行展开、子会话缩进一级），指向仓库
