@@ -10,8 +10,8 @@ change was verified on DSH Desktop 0.2.0-rc.2.
 
 - **原生工作区右键菜单里多一项**「置顶工作区」/「取消置顶工作区」，排在「重命名」之前；
   它走 DSH 的 `contextMenus` 注册表（ui-workspace 自己那三项也走这套），图标复用 ui-workspace
-  已注册的 `workspace.pin` / `workspace.unpin`，所以字形与原生一致；菜单开着时置顶完成，标签会
-  就地翻成「取消置顶工作区」（`observe` 订阅了置顶列表）。
+  已注册的 `workspace.pin` / `workspace.unpin`，所以字形与原生一致。打开菜单时按当前状态显示，
+  选择后立即生效（菜单随之关闭）；置顶状态若在别处改变，`observe` 会让它下次打开就是正确标签。
 - 接线放在**等待式子 fiber**（`ctx.inject(["contextMenus"], …)`）：没有该注册表的老宿主
   不加载这一项，分组与「＋」选择器照常工作。
 - 自检 184 → 193：贡献项的目标族/排序/图标键/标签翻转/执行回调/空目标，以及「必须等注册表」。
